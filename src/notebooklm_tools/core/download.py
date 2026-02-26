@@ -83,6 +83,13 @@ class DownloadMixin(BaseClient):
 
         # Use httpx.Cookies for proper cross-domain redirect handling
         cookies = self._get_httpx_cookies()
+        
+        # Remove OSID cookies to prevent cross-domain auth invalidation
+        # When OSID (scoped to notebooklm.google.com) is mistakenly sent to lh3.google.com,
+        # Google interprets it as an invalid session and issues a 302 ServiceLogin redirect.
+        for domain in [".google.com", ".googleusercontent.com"]:
+            cookies.delete("OSID", domain=domain)
+            cookies.delete("__Secure-OSID", domain=domain)
 
         # Per-chunk timeouts: 10s connect, 30s per chunk read/write
         # This allows large files to download without timeout while detecting stalls

@@ -31,6 +31,9 @@ uv run pytest
 
 # Run a single test
 uv run pytest tests/test_file.py::test_function -v
+
+# Run Docker integration test
+bash scripts/docker/run_test.sh
 ```
 
 **Python requirement:** >=3.11
@@ -68,13 +71,13 @@ save_auth_tokens(cookies=<cookie_header>)
 
 ### Method 2: Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NOTEBOOKLM_COOKIES` | Yes | Full cookie header from Chrome DevTools |
-| `NOTEBOOKLM_CSRF_TOKEN` | No | (DEPRECATED - auto-extracted) |
-| `NOTEBOOKLM_SESSION_ID` | No | (DEPRECATED - auto-extracted) |
-| `NOTEBOOKLM_BL` | No | Override for build label / bl URL param (auto-extracted from page) |
-| `NOTEBOOKLM_HL` | No | Interface language and default artifact language (default: `en`) |
+| Variable                | Required | Description                                                        |
+| ----------------------- | -------- | ------------------------------------------------------------------ |
+| `NOTEBOOKLM_COOKIES`    | Yes      | Full cookie header from Chrome DevTools                            |
+| `NOTEBOOKLM_CSRF_TOKEN` | No       | (DEPRECATED - auto-extracted)                                      |
+| `NOTEBOOKLM_SESSION_ID` | No       | (DEPRECATED - auto-extracted)                                      |
+| `NOTEBOOKLM_BL`         | No       | Override for build label / bl URL param (auto-extracted from page) |
+| `NOTEBOOKLM_HL`         | No       | Interface language and default artifact language (default: `en`)   |
 
 ### Token Expiration
 
@@ -115,12 +118,14 @@ src/notebooklm_tools/
 ```
 
 **Layering Rules (v0.3.0+):**
+
 - `cli/` and `mcp/` are thin wrappers: they handle UX concerns (prompts, spinners, JSON responses) and delegate to `services/`
 - `services/` contains all business logic, validation, and error handling. Returns typed dicts.
 - `cli/` and `mcp/` must NOT import from `core/` directly — always go through `services/`
 - `services/` raises `ServiceError`/`ValidationError` — never raw exceptions
 
 **Storage Structure (`~/.notebooklm-mcp-cli/`):**
+
 ```
 ├── config.toml                    # CLI settings (default_profile, output format)
 ├── aliases.json                   # Notebook aliases
@@ -130,48 +135,50 @@ src/notebooklm_tools/
 ```
 
 **Executables:**
+
 - `nlm` - Command-line interface
 - `notebooklm-mcp` - The MCP server
 
 ## MCP Tools Provided
 
-| Tool | Purpose |
-|------|---------|
-| `notebook_list` | List all notebooks |
-| `notebook_create` | Create new notebook |
-| `notebook_get` | Get notebook details |
-| `notebook_describe` | Get AI-generated summary of notebook content with keywords |
-| `source_describe` | Get AI-generated summary and keyword chips for a source |
-| `source_get_content` | Get raw text content from a source (no AI processing) |
-| `notebook_rename` | Rename a notebook |
-| `chat_configure` | Configure chat goal/style and response length |
-| `notebook_delete` | Delete a notebook (REQUIRES confirmation) |
-| `source_add` | Add source (url, text, drive, file) |
-| `notebook_query` | Ask questions (AI answers!) |
-| `source_list_drive` | List sources with types, check Drive freshness |
-| `source_sync_drive` | Sync stale Drive sources (REQUIRES confirmation) |
-| `source_rename` | Rename a source in a notebook |
-| `source_delete` | Delete a source from notebook (REQUIRES confirmation) |
-| `research_start` | Start Web or Drive research to discover sources |
-| `research_status` | Check research progress and get results |
-| `research_import` | Import discovered sources into notebook |
-| `studio_create` | Generate unified content (audio, video, infographic, slides, etc.) |
-| `download_artifact` | Download any artifact (audio, video, pdf, markdown, json) |
-| `export_artifact` | Export Data Tables to Google Sheets or Reports to Google Docs |
-| `studio_status` | Check studio artifact generation status |
-| `studio_delete` | Delete studio artifacts (REQUIRES confirmation) |
-| `studio_revise` | Revise slides in an existing slide deck (creates new artifact, REQUIRES confirmation) |
-| `notebook_share_status` | Get sharing settings and collaborators |
-| `notebook_share_public` | Enable/disable public link access |
-| `notebook_share_invite` | Invite collaborator by email |
-| `save_auth_tokens` | Save tokens extracted via Chrome DevTools MCP |
-| `refresh_auth` | Reload auth tokens or run headless auth |
-| `note_create` | Create a note in a notebook |
-| `note_list` | List all notes in a notebook |
-| `note_update` | Update a note's content or title |
-| `note_delete` | Delete a note (REQUIRES confirmation) |
+| Tool                    | Purpose                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------- |
+| `notebook_list`         | List all notebooks                                                                    |
+| `notebook_create`       | Create new notebook                                                                   |
+| `notebook_get`          | Get notebook details                                                                  |
+| `notebook_describe`     | Get AI-generated summary of notebook content with keywords                            |
+| `source_describe`       | Get AI-generated summary and keyword chips for a source                               |
+| `source_get_content`    | Get raw text content from a source (no AI processing)                                 |
+| `notebook_rename`       | Rename a notebook                                                                     |
+| `chat_configure`        | Configure chat goal/style and response length                                         |
+| `notebook_delete`       | Delete a notebook (REQUIRES confirmation)                                             |
+| `source_add`            | Add source (url, text, drive, file)                                                   |
+| `notebook_query`        | Ask questions (AI answers!)                                                           |
+| `source_list_drive`     | List sources with types, check Drive freshness                                        |
+| `source_sync_drive`     | Sync stale Drive sources (REQUIRES confirmation)                                      |
+| `source_rename`         | Rename a source in a notebook                                                         |
+| `source_delete`         | Delete a source from notebook (REQUIRES confirmation)                                 |
+| `research_start`        | Start Web or Drive research to discover sources                                       |
+| `research_status`       | Check research progress and get results                                               |
+| `research_import`       | Import discovered sources into notebook                                               |
+| `studio_create`         | Generate unified content (audio, video, infographic, slides, etc.)                    |
+| `download_artifact`     | Download any artifact (audio, video, pdf, markdown, json)                             |
+| `export_artifact`       | Export Data Tables to Google Sheets or Reports to Google Docs                         |
+| `studio_status`         | Check studio artifact generation status                                               |
+| `studio_delete`         | Delete studio artifacts (REQUIRES confirmation)                                       |
+| `studio_revise`         | Revise slides in an existing slide deck (creates new artifact, REQUIRES confirmation) |
+| `notebook_share_status` | Get sharing settings and collaborators                                                |
+| `notebook_share_public` | Enable/disable public link access                                                     |
+| `notebook_share_invite` | Invite collaborator by email                                                          |
+| `save_auth_tokens`      | Save tokens extracted via Chrome DevTools MCP                                         |
+| `refresh_auth`          | Reload auth tokens or run headless auth                                               |
+| `note_create`           | Create a note in a notebook                                                           |
+| `note_list`             | List all notes in a notebook                                                          |
+| `note_update`           | Update a note's content or title                                                      |
+| `note_delete`           | Delete a note (REQUIRES confirmation)                                                 |
 
 **IMPORTANT - Operations Requiring Confirmation:**
+
 - `notebook_delete` requires `confirm=True` - deletion is IRREVERSIBLE
 - `source_delete` requires `confirm=True` - deletion is IRREVERSIBLE
 - `source_sync_drive` requires `confirm=True` - always show stale sources first via `source_list_drive`
@@ -187,18 +194,22 @@ None - all NotebookLM features that can be accessed programmatically are impleme
 ## Troubleshooting
 
 ### "401 Unauthorized" or "403 Forbidden"
+
 - Cookies or CSRF token expired
 - Re-extract from Chrome DevTools
 
 ### "Invalid CSRF token"
+
 - The `at=` value expired
 - Must match the current session
 
 ### Empty notebook list
+
 - Session might be for a different Google account
 - Verify you're logged into the correct account
 
 ### Rate limit errors
+
 - Free tier: ~50 queries/day
 - Wait until the next day or upgrade to Plus
 
@@ -211,6 +222,7 @@ None - all NotebookLM features that can be accessed programmatically are impleme
 **[docs/API_REFERENCE.md](./docs/API_REFERENCE.md)**
 
 This includes:
+
 - All discovered RPC endpoints and their parameters
 - Source type structures (URL, text, Drive)
 - Studio content creation (audio, video, reports, etc.)
@@ -219,6 +231,7 @@ This includes:
 - Source metadata structures
 
 Only read API_REFERENCE.md when:
+
 - Debugging API issues
 - Adding new features
 - Understanding internal API behavior
@@ -230,6 +243,7 @@ Only read API_REFERENCE.md when:
 **[docs/MCP_CLI_TEST_PLAN.md](./docs/MCP_CLI_TEST_PLAN.md)**
 
 This includes:
+
 - Step-by-step test cases for all 29 MCP tools and CLI commands
 - Authentication and basic operations tests
 - Source management and Drive sync tests
@@ -237,6 +251,7 @@ This includes:
 - Quick copy-paste test prompts for validation
 
 Use this test plan when:
+
 - Validating MCP server functionality after code changes
 - Testing new tool implementations
 - Debugging MCP tool issues
