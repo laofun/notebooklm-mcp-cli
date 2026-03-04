@@ -21,6 +21,7 @@ def studio_create(
     # Infographic options
     orientation: str = "landscape",
     detail_level: str = "standard",
+    infographic_style: str = "auto_select",
     # Slide deck options
     slide_format: str = "detailed_deck",
     slide_length: str = "default",
@@ -60,7 +61,7 @@ def studio_create(
         Type-specific options:
         - audio: audio_format (deep_dive|brief|critique|debate), audio_length (short|default|long)
         - video: video_format (explainer|brief), visual_style (auto_select|classic|whiteboard|kawaii|anime|watercolor|retro_print|heritage|paper_craft)
-        - infographic: orientation (landscape|portrait|square), detail_level (concise|standard|detailed)
+        - infographic: orientation (landscape|portrait|square), detail_level (concise|standard|detailed), infographic_style (auto_select|sketch_note|professional|bento_grid|editorial|instructional|bricks|clay|anime|kawaii|scientific)
         - slide_deck: slide_format (detailed_deck|presenter_slides), slide_length (short|default)
         - report: report_format (Briefing Doc|Study Guide|Blog Post|Create Your Own), custom_prompt
         - flashcards: difficulty (easy|medium|hard)
@@ -97,7 +98,7 @@ def studio_create(
         elif artifact_type == "video":
             settings.update({"format": video_format, "visual_style": visual_style, "language": language})
         elif artifact_type == "infographic":
-            settings.update({"orientation": orientation, "detail_level": detail_level, "language": language})
+            settings.update({"orientation": orientation, "detail_level": detail_level, "infographic_style": infographic_style, "language": language})
         elif artifact_type == "slide_deck":
             settings.update({"format": slide_format, "length": slide_length, "language": language})
         elif artifact_type == "report":
@@ -128,6 +129,7 @@ def studio_create(
             audio_format=audio_format, audio_length=audio_length,
             video_format=video_format, visual_style=visual_style,
             orientation=orientation, detail_level=detail_level,
+            infographic_style=infographic_style,
             slide_format=slide_format, slide_length=slide_length,
             report_format=report_format, custom_prompt=custom_prompt,
             question_count=question_count, difficulty=difficulty,

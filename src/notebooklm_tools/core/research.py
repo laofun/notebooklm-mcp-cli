@@ -206,6 +206,11 @@ class ResearchMixin(BaseClient):
                 for task in research_tasks:
                     if task.get("query", "").lower() == target_query.lower():
                         return task
+            # Fallback: deep research mutates task_id internally, so the
+            # ID returned by start_research() won't match the polled ID.
+            # If there's exactly one task, it's safe to return it. (Issue #69)
+            if len(research_tasks) == 1:
+                return research_tasks[0]
             return None
 
         # If only target_query provided (no task_id), match by query

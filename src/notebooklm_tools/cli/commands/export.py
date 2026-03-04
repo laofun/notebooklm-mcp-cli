@@ -52,7 +52,7 @@ def export_artifact(
         
         if json_output:
             import json
-            console.print(json.dumps(result, indent=2))
+            print(json.dumps(result, indent=2))
             return
         
         console.print(f"[green]✓[/green] {result['message']}")

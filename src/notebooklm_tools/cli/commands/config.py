@@ -23,7 +23,7 @@ def show_config(
     
     if json_output:
         import json
-        console.print_json(json.dumps(config.model_dump(), indent=2))
+        print(json.dumps(config.model_dump(), indent=2))
     else:
         # Print as TOML syntax highlighted
         toml_str = _config_to_toml(config)

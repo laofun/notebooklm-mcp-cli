@@ -21,7 +21,7 @@ nlm version {version}
 ```bash
 nlm login
 ```
-This opens NotebookLM in Chrome and extracts cookies automatically.
+This opens NotebookLM in your browser (Chrome, Arc, Brave, Edge, or any Chromium-based browser) and extracts cookies automatically.
 Output on success: `✓ Successfully authenticated!`
 
 ### Check If Already Authenticated
@@ -37,7 +37,7 @@ The CLI includes automatic recovery for both auth and server errors:
 **Auth Recovery (3-layer):**
 1. **CSRF/Session Refresh**: Automatically refreshes tokens on 401 errors
 2. **Token Reload**: Reloads tokens from disk if updated externally (e.g., by another session)
-3. **Headless Auth**: If Chrome profile has saved login, attempts headless authentication
+3. **Headless Auth**: If browser profile has saved login, attempts headless authentication
 
 **Server Error Retry:**
 Transient server errors (429, 500, 502, 503, 504) are automatically retried up to 3 times with exponential backoff (1s, 2s, 4s). This handles Google API flakiness transparently.
@@ -107,7 +107,7 @@ nlm status artifacts <notebook>
 | `nlm data-table` | Create data tables (create) |
 | `nlm share` | Manage notebook sharing (status, public, private, invite) |
 | `nlm skill` | Install AI assistant skills (install, uninstall, list, show) |
-| `nlm doctor` | Diagnose installation, auth, Chrome, and AI tool configs |
+| `nlm doctor` | Diagnose installation, auth, browser, and AI tool configs |
 | `nlm setup` | Configure MCP server for AI tools (add, remove, list) |
 
 ### All Verb-First Commands
@@ -679,6 +679,13 @@ nlm get config <key>            # Get specific setting
 nlm set config <key> <value>    # Update setting
 ```
 
+**Available config keys:**
+- `auth.browser` — Preferred browser for login: auto (default), chrome, arc, brave, edge, chromium, vivaldi, opera. Falls back to auto if preferred browser is not found.
+- `auth.default_profile` — Default profile name (default: "default")
+- `output.format` — Default output format: table, json (default: "table")
+- `output.color` — Enable colored output (default: true)
+- `output.short_ids` — Show abbreviated IDs (default: true)
+
 ### Diagnostics & Setup
 
 **Doctor** - Diagnose your NotebookLM MCP installation:
@@ -687,7 +694,7 @@ nlm doctor                      # Run all diagnostic checks
 nlm doctor --verbose            # Show additional details
 ```
 
-Checks: installation, authentication, Chrome profile, AI tool configs. Shows suggestions for any issues found.
+Checks: installation, authentication, browser profile, AI tool configs. Shows suggestions for any issues found.
 
 **Setup** - Configure MCP server for AI tools:
 ```bash

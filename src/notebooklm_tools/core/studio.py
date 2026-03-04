@@ -544,6 +544,7 @@ class StudioMixin(BaseClient):
         source_ids: list[str] | None = None,
         orientation_code: int = 1,  # INFOGRAPHIC_ORIENTATION_LANDSCAPE
         detail_level_code: int = 2,  # INFOGRAPHIC_DETAIL_STANDARD
+        visual_style_code: int = 1,  # INFOGRAPHIC_STYLE_AUTO_SELECT
         language: str = "en",
         focus_prompt: str = "",
     ) -> dict | None:
@@ -560,9 +561,9 @@ class StudioMixin(BaseClient):
         # Build source IDs in the nested format: [[[id1]], [[id2]], ...]
         sources_nested = [[[sid]] for sid in source_ids]
 
-        # Options at position 14: [[focus_prompt, language, null, orientation, detail_level]]
-        # Captured RPC structure was [[null, "en", null, 1, 2]]
-        infographic_options = [[focus_prompt or None, language, None, orientation_code, detail_level_code]]
+        # Options at position 14: [[focus_prompt, language, null, orientation, detail_level, visual_style]]
+        # Captured RPC structure: [[null, "en", null, 1, 2, 2]]
+        infographic_options = [[focus_prompt or None, language, None, orientation_code, detail_level_code, visual_style_code]]
 
         content = [
             None, None,
@@ -599,6 +600,7 @@ class StudioMixin(BaseClient):
                 "status": "in_progress" if status_code == 1 else "completed" if status_code == 3 else "unknown",
                 "orientation": constants.INFOGRAPHIC_ORIENTATIONS.get_name(orientation_code),
                 "detail_level": constants.INFOGRAPHIC_DETAILS.get_name(detail_level_code),
+                "visual_style": constants.INFOGRAPHIC_STYLES.get_name(visual_style_code),
                 "language": language,
             }
 

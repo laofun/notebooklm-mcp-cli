@@ -755,7 +755,7 @@ params = [
         7,                         # STUDIO_TYPE_INFOGRAPHIC
         [[[source_id1]], [[source_id2]], ...],  # Source IDs (nested arrays)
         None, None, None, None, None, None, None, None, None, None,  # 10 nulls
-        [[focus_prompt, language, None, orientation_code, detail_level_code]]  # Options at position 14
+        [[focus_prompt, language, None, orientation_code, detail_level_code, visual_style_code]]  # Options at position 14
     ]
 ]
 ```
@@ -766,6 +766,7 @@ params = [
 |--------|--------|
 | **Orientations** | 1=Landscape (16:9), 2=Portrait (9:16), 3=Square (1:1) |
 | **Detail Levels** | 1=Concise, 2=Standard, 3=Detailed (BETA) |
+| **Visual Styles** | 1=Auto-select, 2=Sketch Note, 3=Professional, 4=Bento Grid, 5=Editorial, 6=Instructional, 7=Bricks, 8=Clay, 9=Anime, 10=Kawaii, 11=Scientific |
 | **Languages** | BCP-47 codes: "en", "es", "fr", "de", "ja", etc. |
 
 #### Slide Deck Request

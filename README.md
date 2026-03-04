@@ -251,7 +251,7 @@ Before using the CLI or MCP, you need to authenticate with NotebookLM:
 ### CLI Authentication (Recommended)
 
 ```bash
-# Auto mode: launches Chrome, you log in, cookies extracted automatically
+# Auto mode: launches your browser, you log in, cookies extracted automatically
 nlm login
 
 # Check if already authenticated
@@ -277,18 +277,20 @@ nlm login profile delete <profile>   # Delete a profile
 nlm login profile rename <old> <new> # Rename a profile
 ```
 
-Each profile gets its own isolated Chrome session, so you can be logged into multiple Google accounts simultaneously.
+Each profile gets its own isolated browser session, so you can be logged into multiple Google accounts simultaneously.
 
 ### Standalone Auth Tool
 
 If you only need the MCP server (not the CLI):
 
 ```bash
-nlm login              # Auto mode (launches Chrome)
+nlm login              # Auto mode (launches browser)
 nlm login --manual     # Manual file mode
 ```
 
-**How it works:** Auto mode launches a dedicated Chrome profile, you log in to Google, and cookies are extracted automatically. Your login persists for future auth refreshes.
+**How it works:** Auto mode launches a dedicated browser profile (supports Chrome, Arc, Brave, Edge, Chromium, and more), you log in to Google, and cookies are extracted automatically. Your login persists for future auth refreshes.
+
+**Prefer a specific browser?** Set it with `nlm config set auth.browser brave` (or `arc`, `edge`, `chromium`, etc.). Falls back to auto-detection if the preferred browser is not found.
 
 For detailed instructions and troubleshooting, see **[docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)**.
 
@@ -443,7 +445,7 @@ Simply chat with your AI tool (Claude Code, Cursor, Gemini CLI) using natural la
 - "Generate a video explainer with classic visual style"
 - "Make a briefing doc from these sources"
 - "Create flashcards for studying, medium difficulty"
-- "Generate an infographic in landscape orientation"
+- "Generate an infographic in landscape orientation with professional style"
 - "Build a mind map from my research sources"
 - "Create a slide deck presentation from this notebook"
 
@@ -468,14 +470,14 @@ Simply chat with your AI tool (Claude Code, Cursor, Gemini CLI) using natural la
 
 | Component | Duration | Refresh |
 |-----------|----------|---------|
-| Cookies | ~2-4 weeks | Auto-refresh via headless Chrome (if profile saved) |
+| Cookies | ~2-4 weeks | Auto-refresh via headless browser (if profile saved) |
 | CSRF Token | ~minutes | Auto-refreshed on every request failure |
 | Session ID | Per MCP session | Auto-extracted on MCP start |
 
 **v0.1.9+**: The server now automatically handles token expiration:
 1. Refreshes CSRF tokens immediately when expired
 2. Reloads cookies from disk if updated externally
-3. Runs headless Chrome auth if profile has saved login
+3. Runs headless browser auth if profile has saved login
 
 You can also call `refresh_auth()` to explicitly reload tokens.
 
@@ -531,6 +533,7 @@ Special thanks to:
 - **Le Anh Tuan** ([@latuannetnam](https://github.com/latuannetnam)) for contributing the HTTP transport, debug logging system, and performance optimizations.
 - **David Szabo-Pele** ([@davidszp](https://github.com/davidszp)) for the `source_get_content` tool and Linux auth fixes.
 - **saitrogen** ([@saitrogen](https://github.com/saitrogen)) for the research polling query fallback fix.
+- **devnull03** ([@devnull03](https://github.com/devnull03)) for multi-browser CDP authentication support (Arc, Brave, Edge, Chromium, Vivaldi, Opera).
 - **VooDisss** ([@VooDisss](https://github.com/VooDisss)) for multi-browser authentication improvements.
 - **codepiano** ([@codepiano](https://github.com/codepiano)) for the configurable DevTools timeout for the auth CLI.
 - **Tony Hansmann** ([@997unix](https://github.com/997unix)) for contributing the `nlm setup` and `nlm doctor` commands and CLI Guide documentation.

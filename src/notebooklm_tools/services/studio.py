@@ -183,6 +183,7 @@ def create_artifact(
     # Infographic
     orientation: str = "landscape",
     detail_level: str = "standard",
+    infographic_style: str = "auto_select",
     # Slide deck
     slide_format: str = "detailed_deck",
     slide_length: str = "default",
@@ -224,6 +225,7 @@ def create_artifact(
             audio_format=audio_format, audio_length=audio_length,
             video_format=video_format, visual_style=visual_style,
             orientation=orientation, detail_level=detail_level,
+            infographic_style=infographic_style,
             slide_format=slide_format, slide_length=slide_length,
             report_format=report_format, custom_prompt=custom_prompt,
             question_count=question_count, difficulty=difficulty,
@@ -278,9 +280,11 @@ def _dispatch_create(
     elif artifact_type == "infographic":
         orientation_code = resolve_code(constants.INFOGRAPHIC_ORIENTATIONS, kwargs["orientation"], "orientation")
         detail_code = resolve_code(constants.INFOGRAPHIC_DETAILS, kwargs["detail_level"], "detail level")
+        style_code = resolve_code(constants.INFOGRAPHIC_STYLES, kwargs.get("infographic_style", "auto_select"), "visual style")
         return client.create_infographic(
             notebook_id, source_ids=source_ids,
             orientation_code=orientation_code, detail_level_code=detail_code,
+            visual_style_code=style_code,
             language=kwargs["language"], focus_prompt=kwargs["focus_prompt"],
         )
 

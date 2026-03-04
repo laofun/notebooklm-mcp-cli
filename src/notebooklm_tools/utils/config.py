@@ -316,7 +316,7 @@ class OutputConfig(BaseModel):
 class AuthConfig(BaseModel):
     """Authentication configuration."""
 
-    browser: str = Field(default="auto", description="Browser for auth: auto, chrome, firefox, safari, edge, brave")
+    browser: str = Field(default="auto", description="Browser for auth: auto, chrome, arc, brave, edge, chromium, vivaldi, opera")
     default_profile: str = Field(default="default", description="Default profile name")
 
 

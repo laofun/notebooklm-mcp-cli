@@ -33,7 +33,7 @@ def share_status(
         
         if json_output:
             import json
-            console.print(json.dumps(result, indent=2))
+            print(json.dumps(result, indent=2))
             return
         
         # Rich output

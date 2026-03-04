@@ -476,6 +476,10 @@ def create_infographic(
     notebook_id: str = typer.Argument(..., help="Notebook ID"),
     orientation: str = typer.Option("landscape", "--orientation", "-o", help="Orientation: landscape, portrait, square"),
     detail: str = typer.Option("standard", "--detail", "-d", help="Detail level: concise, standard, detailed"),
+    style: str = typer.Option(
+        "auto_select", "--style",
+        help="Visual style: auto_select, sketch_note, professional, bento_grid, editorial, instructional, bricks, clay, anime, kawaii, scientific",
+    ),
     language: str = typer.Option("", "--language", help="BCP-47 language code (default: NOTEBOOKLM_HL or en)"),
     focus: str = typer.Option("", "--focus", help="Optional focus topic"),
     source_ids: Optional[str] = typer.Option(None, "--source-ids", "-s", help="Comma-separated source IDs"),
@@ -491,6 +495,7 @@ def create_infographic(
         profile=profile,
         source_ids=parse_source_ids(source_ids),
         orientation=orientation, detail_level=detail,
+        infographic_style=style,
         language=language, focus_prompt=focus,
     )
 

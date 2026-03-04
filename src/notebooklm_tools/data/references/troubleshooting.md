@@ -9,7 +9,7 @@ This document provides detailed solutions for common issues when using the `nlm`
 | "Cookies have expired" | Session timeout | `nlm login` |
 | "Notebook not found" | Invalid/stale ID | `nlm notebook list` |
 | "Source not found" | Invalid source ID | `nlm source list <nb-id>` |
-| Chrome doesn't open | Port conflict | Close existing Chrome, retry |
+| Browser doesn't open | Port conflict | Close existing browser, retry |
 | "Research already in progress" | Pending task | `--force` or import existing |
 | "nodename nor servname" | Network blocked | See [Sandbox Users](#sandbox-environments) |
 | Commands hang forever | Network/auth issue | Ctrl+C, `nlm login` |
@@ -39,23 +39,23 @@ nlm login
 nlm login --check || nlm login
 ```
 
-### Chrome Doesn't Launch
+### Browser Doesn't Launch
 
 **Symptoms:**
 - `nlm login` hangs with no browser window
-- Error about Chrome not found
+- Error about no supported browser found
 
 **Solutions:**
 
-1. **Ensure Chrome is installed and in PATH:**
+1. **Ensure a supported Chromium-based browser is installed:**
+   Supported browsers (in priority order): Google Chrome, Arc (macOS), Brave, Microsoft Edge, Chromium, Vivaldi, Opera.
    ```bash
-   which google-chrome || which chromium
-   # On macOS, Chrome is at /Applications/Google Chrome.app
+   which google-chrome || which brave-browser || which chromium
    ```
 
-2. **Close existing Chrome instances:**
+2. **Close existing browser instances:**
    ```bash
-   pkill -f "Chrome"
+   pkill -f "Chrome\|Brave\|Arc\|Edge"
    # Wait a moment, then retry
    nlm login
    ```

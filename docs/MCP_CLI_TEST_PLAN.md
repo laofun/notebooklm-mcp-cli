@@ -483,7 +483,7 @@ Create a quiz for notebook [notebook_id]:
 
 ### Test 5.6 - Create Infographic
 **Tool:** `studio_create`
-**CLI:** `nlm infographic create [notebook_id] --orientation landscape --detail standard --confirm`
+**CLI:** `nlm infographic create [notebook_id] --orientation landscape --detail standard --style professional --confirm`
 
 **Prompt:**
 ```
@@ -491,10 +491,13 @@ Create an infographic for notebook [notebook_id]:
 - artifact_type: infographic
 - orientation: landscape
 - detail_level: standard
+- infographic_style: professional
 - confirm: True
 ```
 
-**Expected:** Infographic generation started.
+**Expected:** Infographic generation started with professional visual style.
+
+**Visual Styles Available:** auto_select, sketch_note, professional, bento_grid, editorial, instructional, bricks, clay, anime, kawaii, scientific
 
 ---
 

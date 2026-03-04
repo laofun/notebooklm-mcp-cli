@@ -4,30 +4,32 @@ This guide explains how to authenticate with NotebookLM MCP and CLI.
 
 ## Overview
 
-NotebookLM uses browser cookies for authentication (there is no official API). The CLI/MCP extracts these cookies automatically via Chrome DevTools Protocol.
+NotebookLM uses browser cookies for authentication (there is no official API). The CLI/MCP extracts these cookies automatically via Chrome DevTools Protocol (CDP) from any Chromium-based browser.
+
+**Supported browsers** (in priority order): Google Chrome, Arc (macOS), Brave, Microsoft Edge, Chromium, Vivaldi, Opera.
 
 **Two authentication methods are available:**
 
 | Method | Best For | Requires |
 |--------|----------|----------|
-| **Auto Mode** (default) | Most users | Chrome installed, can close Chrome |
+| **Auto Mode** (default) | Most users | Any supported browser installed, browser closed |
 | **File Mode** (`--file`) | Complex setups, troubleshooting | Manual cookie extraction |
 
 ---
 
 ## Method 1: Auto Mode (Recommended)
 
-This method launches Chrome automatically and extracts cookies after you log in.
+This method launches your browser automatically and extracts cookies after you log in.
 
 ### Prerequisites
 
-- Google Chrome installed
-- Chrome must be **completely closed** before running
+- A supported Chromium-based browser installed (Chrome, Arc, Brave, Edge, Chromium, Vivaldi, or Opera)
+- The browser must be **completely closed** before running
 
 ### Steps
 
 ```bash
-# 1. Close Chrome completely (Cmd+Q on Mac, or quit from taskbar)
+# 1. Close your browser completely (Cmd+Q on Mac, or quit from taskbar)
 
 # 2. Run the auth command (CLI or standalone)
 nlm login                      # Recommended
@@ -45,19 +47,35 @@ nlm login --devtools-timeout 15
 
 ### What Happens Behind the Scenes
 
-1. A dedicated Chrome profile is created for authentication
-2. Chrome launches with remote debugging enabled
-3. You log in to NotebookLM via the browser
-4. Cookies, CSRF token, and account email are extracted and cached
-5. Chrome can be closed
+1. The first available supported browser is detected (or your preferred browser if configured)
+2. A dedicated browser profile is created for authentication
+3. The browser launches with remote debugging enabled
+4. You log in to NotebookLM via the browser
+5. Cookies, CSRF token, and account email are extracted and cached
+6. The browser is closed automatically
+
+### Browser Preference
+
+By default, `nlm login` uses the first available browser. To use a specific browser:
+
+```bash
+# Set preferred browser
+nlm config set auth.browser brave
+
+# Or use an environment variable
+export NLM_BROWSER=arc
+
+# Valid values: auto, chrome, arc, brave, edge, chromium, vivaldi, opera
+# If the preferred browser is not installed, falls back to auto-detection.
+```
 
 ### Persistent Login
 
-The dedicated Chrome profile persists your Google login:
+The dedicated browser profile persists your Google login:
 - **First run:** You must log in to Google
 - **Future runs:** Already logged in, just extracts fresh cookies
 
-This profile is separate from your regular Chrome profile and includes no extensions.
+This profile is separate from your regular browser profile and includes no extensions.
 
 ---
 
@@ -67,8 +85,8 @@ Use multiple Google accounts by creating named profiles:
 
 ```bash
 # Create profiles for different accounts
-nlm login --profile work       # Opens Chrome - log in with work account
-nlm login --profile personal   # Opens Chrome - log in with personal account
+nlm login --profile work       # Opens browser - log in with work account
+nlm login --profile personal   # Opens browser - log in with personal account
 
 # List all profiles
 nlm login profile list
@@ -93,7 +111,7 @@ nlm login profile delete old-profile
 
 Each profile gets:
 - **Separate credentials**: Stored in `~/.notebooklm-mcp-cli/profiles/<name>/`
-- **Separate Chrome profile**: Isolated browser session in `~/.notebooklm-mcp-cli/chrome-profiles/<name>/`
+- **Separate browser profile**: Isolated browser session in `~/.notebooklm-mcp-cli/chrome-profiles/<name>/`
 - **Captured email**: Automatically extracted during login for easy identification
 
 This means you can stay logged into multiple Google accounts simultaneously without conflicts.
@@ -104,7 +122,7 @@ This means you can stay logged into multiple Google accounts simultaneously with
 
 This method lets you manually extract and provide cookies. Use this if:
 - Auto mode doesn't work on your system
-- You have Chrome extensions that interfere (e.g., Google Antigravity IDE)
+- You have browser extensions that interfere (e.g., Google Antigravity IDE)
 - You prefer manual control
 
 ### Steps
@@ -217,9 +235,9 @@ When you start seeing authentication errors, simply run `nlm login` again to ref
 
 ## Troubleshooting
 
-### "Chrome is running but without remote debugging enabled"
+### "Browser is running but without remote debugging enabled"
 
-Close Chrome completely and try again. On Mac, use **Cmd+Q** to fully quit.
+Close your browser completely and try again. On Mac, use **Cmd+Q** to fully quit.
 
 ### Auto mode fails to connect
 
@@ -232,9 +250,9 @@ nlm login --manual
 
 Your cookies have expired. Run the auth command again to refresh.
 
-### Chrome opens with strange branding (e.g., Antigravity IDE)
+### Browser opens with strange branding (e.g., Antigravity IDE)
 
-Some Chrome extensions or tools modify Chrome's behavior. Use file mode:
+Some browser extensions or tools modify the browser's behavior. Try a different browser or use file mode:
 ```bash
 nlm login --manual
 ```
@@ -245,9 +263,9 @@ Make sure you copied the cookie **value**, not the header name. The value should
 
 ---
 
-## Chrome 136+ Compatibility
+## Chromium 136+ Compatibility
 
-Chrome version 136 and later restrict remote debugging on the default profile for security reasons. This is handled automatically by:
+Chrome 136+ (and other Chromium-based browsers at the same version) restrict remote debugging on the default profile for security reasons. This is handled automatically by:
 
 1. Using dedicated profile directories (`~/.notebooklm-mcp-cli/chrome-profiles/<name>/`)
 2. Adding the `--remote-allow-origins=*` flag for WebSocket connections
@@ -259,6 +277,6 @@ No action required from users.
 ## Security Notes
 
 - Cookies are stored locally in `~/.notebooklm-mcp-cli/profiles/<name>/auth.json`
-- Each Chrome profile contains your Google login for NotebookLM
+- Each browser profile contains your Google login for NotebookLM
 - Never share your `auth.json` files or commit them to version control
 - The `cookies.txt` file in the repo is a template - don't commit real cookies

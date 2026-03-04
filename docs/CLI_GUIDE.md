@@ -15,7 +15,7 @@ pip install notebooklm-mcp-cli
 ## Authentication
 
 ```bash
-nlm login                         # Opens Chrome, extracts cookies automatically
+nlm login                         # Opens browser, extracts cookies automatically
 nlm login --profile work          # Named profile for multiple accounts
 nlm login --check                 # Check if authenticated
 nlm login switch <profile>        # Switch default profile
@@ -27,7 +27,7 @@ nlm login profile rename <old> <new>  # Rename a profile
 nlm login --provider openclaw --cdp-url http://127.0.0.1:18800
 ```
 
-Each profile gets its own isolated Chrome session, so you can stay logged into multiple Google accounts simultaneously.
+Each profile gets its own isolated browser session (supports Chrome, Arc, Brave, Edge, Chromium, and more), so you can stay logged into multiple Google accounts simultaneously.
 
 ## Command Structure
 
@@ -107,7 +107,7 @@ nlm slides create <notebook> --confirm
 # Revise slides (creates new deck)
 nlm slides revise <artifact-id> --slide '1 Make the title larger' --confirm
 nlm slides revise <artifact-id> --slide '1 Fix title' --slide '3 Remove image' --confirm
-nlm infographic create <notebook> --orientation landscape --confirm
+nlm infographic create <notebook> --orientation landscape --style professional --confirm
 nlm data-table create <notebook> --description "Sales by region" --confirm
 ```
 
@@ -178,7 +178,7 @@ nlm config set output.format json       # Change default output format
 | `output.format` | `table` | Default output format (table, json) |
 | `output.color` | `true` | Enable colored output |
 | `output.short_ids` | `true` | Show shortened IDs |
-| `auth.browser` | `auto` | Browser for login (auto, chrome, chromium) |
+| `auth.browser` | `auto` | Preferred browser for login (auto, chrome, arc, brave, edge, chromium, vivaldi, opera). Falls back to auto if preferred browser is not found. |
 | `auth.default_profile` | `default` | Profile to use when `--profile` not specified. **Note:** The MCP Server always uses the active default profile. Changing this setting will instantaneously switch the MCP server's Google account. |
 
 ### Aliases (Shortcuts)
@@ -251,7 +251,7 @@ nlm doctor --verbose    # Include additional details (Python version, paths, etc
 |----------|---------------|
 | Installation | Package version, `nlm` and `notebooklm-mcp` binary paths |
 | Authentication | Profile status, cookies present, CSRF token, account email |
-| Chrome | Browser installed, saved Chrome profiles for headless auth |
+| Browser | Chromium-based browser installed, saved profiles for headless auth |
 | AI Tools | MCP configuration status for each supported client |
 
 Each issue includes a suggested fix (e.g., "Run `nlm login` to authenticate").

@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.19] - 2026-03-02
+
+### Fixed
+- **JSON output word wrapping (Issue #72)** — CLI commands using `-j` flag (`note list`, `share status`, `export artifact`, `config show`) were producing invalid JSON due to Rich console wrapping long strings at terminal width. JSON output now bypasses Rich and goes directly to stdout. Thanks to **@pjeby** for reporting.
+
+## [0.3.18] - 2026-03-02
+
+### Added
+- **Infographic visual styles** — Infographics now support 11 visual styles matching the NotebookLM web UI: `auto_select`, `sketch_note`, `professional`, `bento_grid`, `editorial`, `instructional`, `bricks`, `clay`, `anime`, `kawaii`, `scientific`. Available via MCP (`infographic_style` parameter on `studio_create`), CLI (`--style` flag on `nlm infographic create`), and Python API (`visual_style_code` on `create_infographic()`). Default is `auto_select` for backward compatibility.
+
+## [0.3.17] - 2026-03-02
+
+### Added
+- **Multi-browser support for `nlm login`** — `nlm login` now detects and launches any Chromium-based browser, not just Google Chrome. Supported browsers (in priority order): Google Chrome, Arc (macOS), Brave, Microsoft Edge, Chromium, Vivaldi, Opera. Checks both system and user-local install paths. Error messages now dynamically list supported browsers per platform. Thanks to **@devnull03** for this contribution (PR #70).
+- **Browser preference setting** — Users can now control which browser `nlm login` uses via `nlm config set auth.browser <name>`. Valid values: `auto` (default, first found wins), `chrome`, `arc`, `brave`, `edge`, `chromium`, `vivaldi`, `opera`. Falls back to auto-detection if the preferred browser is not installed. Also settable via `NLM_BROWSER` env var.
+
+### Fixed
+- **Deep research task_id mismatch (Issue #69)** — `nlm research status <nb> --task-id <id>` returned "no research found" for deep research because the backend assigns a new task_id internally. Now falls back to returning the only active task when the original task_id doesn't match. Thanks to **@danielbrodie** for reporting.
+
+## [0.3.16] - 2026-02-28
+
+### Fixed
+- **Chrome profile isolation bug**: `nlm login` could reuse a Chrome instance from a different NLM profile. Implemented port-to-profile mapping to guarantee strict cross-profile isolation.
+- **Auto-retry on Google account mismatch**: When switching NLM profiles (or when multiple users log in on the same machine), Chrome can cache the wrong Google login. The builtin login provider now detects `AccountMismatchError`, automatically clears the stale Chrome user-data-dir, and relaunches Chrome for a fresh Google sign-in.
+- **`nlm login profile delete` validation**: Profile deletion was failing for broken/invalid profiles because it strictly checked for valid cookies. Now it checks if the profile directory exists, allowing deletion of empty/corrupt profiles.
+
 ## [0.3.15] - 2026-02-26
 
 ### Added

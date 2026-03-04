@@ -39,7 +39,7 @@ def list_notes(
                 console.print(note['id'])
         elif json_output:
             import json
-            console.print(json.dumps(result, indent=2))
+            print(json.dumps(result, indent=2))
         else:
             if not notes:
                 console.print(f"[dim]No notes found in notebook {notebook_id}[/dim]")
