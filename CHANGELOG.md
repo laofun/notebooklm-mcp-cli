@@ -4,6 +4,53 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.4.4] - 2026-03-08
+
+### Fixed
+- **Complex citation parsing (PR #84)** — Fixed `notebook_query` dropping cited text when Google returns "direct" citation segments (integer-first elements) alongside the standard "wrapped" format. Both segment variants are now correctly handled. Thanks to **@meirtsvi** for this contribution!
+- **Table citation extraction (PR #84)** — When a citation references a data table, the response now includes a structured `cited_table` field with `num_columns` and `rows` data. Table segments are indicated by a `<cited_table>` placeholder in the `cited_text` field.
+- **Mind map JSON missing from MCP response (Issue #83)** — `studio_create` for mind maps was returning metadata (`root_name`, `children_count`) but dropping the actual `mind_map_json`. The full JSON now flows through to MCP clients. Thanks to **@cowhi** for reporting!
+
+### Added
+- **17 new unit tests** for citation parsing — Comprehensive test coverage for direct/wrapped segment detection, table placeholder insertion, `_extract_text_from_table_rows`, `_extract_table_from_detail`, and `cited_table` in `_extract_citation_data`. Total tests: 503.
+
+## [0.4.3] - 2026-03-08
+
+### Removed
+- **`nlm setup add claude-desktop` removed** — Claude Desktop users should install via the `.mcpb` extension (download from [Releases](https://github.com/jacob-bd/notebooklm-mcp-cli/releases/latest), double-click to install). The CLI-based config file editing was unreliable compared to the extension approach. `nlm setup add claude-code` (for the Claude Code CLI) is unchanged.
+
+## [0.4.2] - 2026-03-08
+
+### Added
+- **Expanded file format support (PR #82)** — File uploads now accept additional formats. Thanks to **@JumpLao** for this contribution!
+  - Audio: `.m4a`, `.wav`, `.aac`, `.ogg`, `.opus` (previously only `.mp3`)
+  - Images: `.gif`, `.webp` (previously only `.jpg`, `.jpeg`, `.png`)
+  - Note: `.flac`, `.webm`, `.mov`, `.avi`, `.mkv` were removed from the original PR as Google's upload server does not accept them
+- **Cited text passages in query output (PR #81)** — `notebook_query` responses now include a `references` array with the actual quoted passage text for each citation. Previously, only the source ID and citation number were returned; the passage text was already in the API response but was being discarded. Thanks to **@cbruyndoncx** for this contribution!
+  - Each reference includes `source_id`, `citation_number`, and `cited_text`
+  - Backward-compatible: existing `sources_used` and `citations` fields unchanged
+  - Flows through MCP and CLI automatically
+- **`nlm setup add all` — Interactive multi-tool setup** — Scans the system for installed AI tools, shows detection status, and lets you interactively choose which ones to configure with NotebookLM MCP
+  - Detects: Claude Code, Claude Desktop, Gemini CLI, Cursor, Windsurf, Cline, Antigravity, Codex
+  - Shows which tools are already configured vs. newly detected
+  - Select `all`, specific numbers, or `none`
+- **`nlm setup remove all`** — Remove NotebookLM MCP from all configured tools at once, with explicit confirmation and safety warnings. Uses CLI-first removal (e.g., `claude mcp remove`) where available.
+
+### Changed
+- **Codex skill path updated** — `nlm skill install codex` now installs to `~/.agents/skills/nlm-skill/SKILL.md` per [official Codex docs](https://developers.openai.com/codex/skills/), replacing the old `~/.codex/AGENTS.md` path. Users with the old installation should run `nlm skill install codex` to reinstall at the correct location.
+
+## [0.4.1] - 2026-03-07
+
+### Added
+- **Cinematic Video Format (Experimental)** — Added support for NotebookLM's new "Cinematic" video format (`video_format="cinematic"`, format code `3`). This format produces higher-fidelity video overviews and is available to NotebookLM Plus/Ultra subscribers. Thanks to **@ovai-felix** for the detailed reverse-engineering and verified payload structure (Issue #79).
+  - Core: Cinematic payloads use a 5-element inner options array (omitting `visual_style_code`), while Explainer/Brief continue to use 6 elements
+  - MCP: `studio_create` with `video_format="cinematic"` 
+  - CLI: `nlm video create <notebook> --format cinematic`
+  - ⚠️ **Note for free/Pro users:** Cinematic is gated behind NotebookLM Plus/Ultra. Free and Pro tier users will see: `"NotebookLM rejected video creation. Try again later or create from NotebookLM UI for diagnosis."` — this is expected behavior, not a bug.
+
+### Fixed
+- **Claude Desktop `.mcpb` extension disconnects (Issue #78)** — The `.mcpb` bundle was incomplete (only contained `manifest.json` with no entrypoint) and relied on `uvx` being in PATH, which Claude Desktop's restricted macOS environment doesn't expose. Fixed by bundling a cross-platform Python launcher (`run_server.py`) that defensively resolves `uvx` across common install locations (`~/.local/bin`, `~/.cargo/bin`, `/opt/homebrew/bin`, etc.) and using `${__dirname}` for reliable path resolution. Thanks to **@abanoub-ashraf** for the detailed diagnosis and reproduction steps.
+
 ## [0.4.0] - 2026-03-05
 
 ### Added

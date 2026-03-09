@@ -148,6 +148,8 @@ class ConversationMixin(BaseClient):
             - conversation_id: ID to use for follow-up questions
             - sources_used: List of source IDs cited in the answer
             - citations: Dict mapping citation number to source ID (1-indexed)
+            - references: List of dicts with source_id, citation_number, and
+              cited_text (the actual passage text from the source)
             - turn_number: Which turn this is in the conversation (1 = first)
             - is_follow_up: Whether this was a follow-up query
             - raw_response: The raw parsed response (for debugging)
@@ -231,6 +233,7 @@ class ConversationMixin(BaseClient):
             "conversation_id": conversation_id,
             "sources_used": citation_data.get("sources_used", []),
             "citations": citation_data.get("citations", {}),
+            "references": citation_data.get("references", []),
             "turn_number": turn_number,
             "is_follow_up": not is_new_conversation,
             "raw_response": response.text[:1000] if response.text else "",
@@ -464,17 +467,179 @@ class ConversationMixin(BaseClient):
         return None, False, {}
 
     @staticmethod
+    def _extract_cited_text(detail: list) -> str | None:
+        """Extract cited text from a passage detail structure.
+
+        The text passages are at detail[4], which contains elements in two variants:
+          - Wrapped segments: [[start, end, nested], metadata] — first element is a list
+          - Direct segments: [start, end, nested] — first element is an integer
+        Each segment has nested_passages containing text as [start, end, text] triplets.
+
+        Args:
+            detail: The inner detail array (passage[1]).
+
+        Returns:
+            Concatenated cited text string, or None if no text found.
+        """
+        if len(detail) <= 4 or not isinstance(detail[4], list):
+            return None
+
+        texts: list[str] = []
+        for element in detail[4]:
+            if not isinstance(element, list) or not element:
+                continue
+
+            # Detect: is this a direct segment [int, int, nested] or a wrapper [[seg], ...]?
+            if isinstance(element[0], (int, float)):
+                # Direct segment
+                segments_to_process = [element]
+            else:
+                # Wrapper containing segments (and possibly metadata like [null, 1])
+                segments_to_process = element
+
+            for segment in segments_to_process:
+                if not isinstance(segment, list) or len(segment) < 3:
+                    continue
+                if not isinstance(segment[0], (int, float)):
+                    continue
+                nested = segment[2]
+                if not isinstance(nested, list):
+                    # Table segment: insert placeholder, data goes in cited_table
+                    if (len(segment) > 4 and isinstance(segment[4], list)
+                            and len(segment[4]) >= 3
+                            and isinstance(segment[4][2], list)):
+                        texts.append("<cited_table>")
+                    continue
+                for nested_group in nested:
+                    if not isinstance(nested_group, list):
+                        continue
+                    for inner in nested_group:
+                        if not isinstance(inner, list) or len(inner) < 3:
+                            continue
+                        text_val = inner[2]
+                        if isinstance(text_val, str) and text_val.strip():
+                            texts.append(text_val.strip())
+                        elif isinstance(text_val, list):
+                            for item in text_val:
+                                if isinstance(item, str) and item.strip():
+                                    texts.append(item.strip())
+
+        return " ".join(texts) if texts else None
+
+    @staticmethod
+    def _extract_text_from_table_rows(rows: list) -> list[list[str]]:
+        """Parse table rows into a structured list of rows, each a list of cell strings.
+
+        Table segments have their data at segment[4] = [dim1, dim2, rows_array].
+        Each row:  [start, end, [cells...]]
+        Each cell: [start, end, [[sub_start, sub_end, [content_items...]]]]
+                   or [start, start] (empty cell)
+        Each content_item: [[text_start, text_end, [text, ...]], optional_metadata]
+
+        Returns:
+            List of rows, where each row is a list of cell text strings.
+        """
+        parsed_rows: list[list[str]] = []
+        for row in rows:
+            if not isinstance(row, list) or len(row) < 3:
+                continue
+            cells = row[2]
+            if not isinstance(cells, list):
+                continue
+            row_cells: list[str] = []
+            for cell in cells:
+                cell_text = ""
+                if isinstance(cell, list) and len(cell) >= 3:
+                    cell_content = cell[2]
+                    if isinstance(cell_content, list):
+                        parts: list[str] = []
+                        for sub_elem in cell_content:
+                            if not isinstance(sub_elem, list) or len(sub_elem) < 3:
+                                continue
+                            content_items = sub_elem[2]
+                            if not isinstance(content_items, list):
+                                continue
+                            for item in content_items:
+                                if not isinstance(item, list) or not item:
+                                    continue
+                                first = item[0]
+                                if not isinstance(first, list) or len(first) < 3:
+                                    continue
+                                text_val = first[2]
+                                if isinstance(text_val, list):
+                                    for t in text_val:
+                                        if isinstance(t, str) and t.strip():
+                                            parts.append(t.strip())
+                                elif isinstance(text_val, str) and text_val.strip():
+                                    parts.append(text_val.strip())
+                        cell_text = " ".join(parts)
+                row_cells.append(cell_text)
+            parsed_rows.append(row_cells)
+        return parsed_rows
+
+    @staticmethod
+    def _extract_table_from_detail(detail: list) -> dict | None:
+        """Extract structured table data from a passage detail.
+
+        Scans detail[4] for table/grid segments (where segment[2] is null and
+        segment[4] holds [dim1, dim2, rows_array]).
+
+        Returns:
+            Dict with 'num_columns' and 'rows' (list of lists of cell strings),
+            or None if no table found.
+        """
+        if len(detail) <= 4 or not isinstance(detail[4], list):
+            return None
+
+        for element in detail[4]:
+            if not isinstance(element, list) or not element:
+                continue
+
+            if isinstance(element[0], (int, float)):
+                segments = [element]
+            else:
+                segments = element
+
+            for segment in segments:
+                if not isinstance(segment, list) or len(segment) < 3:
+                    continue
+                if not isinstance(segment[0], (int, float)):
+                    continue
+                # Table segments have segment[2] as null, data in segment[4]
+                if isinstance(segment[2], list):
+                    continue
+                if len(segment) <= 4 or not isinstance(segment[4], list):
+                    continue
+                table_info = segment[4]
+                if len(table_info) < 3 or not isinstance(table_info[2], list):
+                    continue
+
+                parsed_rows = ConversationMixin._extract_text_from_table_rows(
+                    table_info[2]
+                )
+                if parsed_rows:
+                    return {
+                        "num_columns": len(parsed_rows[0]),
+                        "rows": parsed_rows,
+                    }
+
+        return None
+
+    @staticmethod
     def _extract_citation_data(type_info: list) -> dict:
-        """Extract source IDs from the citation passages in a type-1 answer chunk.
+        """Extract source IDs and cited text from the citation passages in a type-1 answer chunk.
 
         The source passages are at type_info[3] (i.e. first_elem[4][3]).
-        Each passage entry: [["passage_id"], [null, null, confidence, ..., [[["SOURCE_ID"], ...]], ...]]
+        Each passage entry: [["passage_id"], [null, null, confidence, ..., text_passages, [[["SOURCE_ID"], ...]], ...]]
         The parent source ID is at passage[1][5][0][0][0].
+        The cited text passages are at passage[1][4].
         Citations in the answer text are 1-indexed into this array.
 
         Returns:
-            Dict with 'sources_used' (unique source IDs) and
-            'citations' (citation_number -> source_id mapping), or empty dict.
+            Dict with 'sources_used' (unique source IDs),
+            'citations' (citation_number -> source_id mapping),
+            and 'references' (list of {source_id, citation_number, cited_text}),
+            or empty dict.
         """
         try:
             if len(type_info) < 4 or not isinstance(type_info[3], list):
@@ -486,6 +651,7 @@ class ConversationMixin(BaseClient):
 
             citations: dict[int, str] = {}
             seen_sources: dict[str, None] = {}  # ordered set via dict
+            references: list[dict] = []
 
             for i, passage in enumerate(passages):
                 if not isinstance(passage, list) or len(passage) < 2:
@@ -504,8 +670,26 @@ class ConversationMixin(BaseClient):
                     continue
                 source_id = source_id_wrapper[0]
                 if isinstance(source_id, str):
-                    citations[i + 1] = source_id
+                    citation_number = i + 1
+                    citations[citation_number] = source_id
                     seen_sources[source_id] = None
+
+                    # Extract cited text from passage detail
+                    cited_text = ConversationMixin._extract_cited_text(detail)
+
+                    ref_entry: dict = {
+                        "source_id": source_id,
+                        "citation_number": citation_number,
+                    }
+                    if cited_text:
+                        ref_entry["cited_text"] = cited_text
+
+                    # Extract structured table data if present
+                    cited_table = ConversationMixin._extract_table_from_detail(detail)
+                    if cited_table:
+                        ref_entry["cited_table"] = cited_table
+
+                    references.append(ref_entry)
 
             if not citations:
                 return {}
@@ -513,6 +697,7 @@ class ConversationMixin(BaseClient):
             return {
                 "sources_used": list(seen_sources.keys()),
                 "citations": citations,
+                "references": references,
             }
         except (IndexError, TypeError):
             return {}

@@ -71,3 +71,4 @@ run*.notebooklm-py-analysis/
 # Build artifacts
 *.mcpb
 test_pr_61.py
+notebooklm-mcp-*.mcpb

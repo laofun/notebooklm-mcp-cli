@@ -670,7 +670,7 @@ class SourceMixin(BaseClient):
         2. Start upload session with SOURCE_ID → get upload URL
         3. Stream upload file content (memory-efficient for large files)
 
-        Supported file types: PDF, TXT, MD, DOCX, CSV, MP3, MP4, JPG, PNG
+        Supported file types: PDF, TXT, MD, DOCX, CSV, MP3, M4A, WAV, AAC, OGG, OPUS, MP4, JPG, PNG, GIF, WEBP
 
         Args:
             notebook_id: The notebook ID to add the source to
@@ -700,7 +700,12 @@ class SourceMixin(BaseClient):
             raise FileValidationError(f"File is empty: {file_path}")
 
         # Validate file type
-        supported_extensions = {'.pdf', '.txt', '.md', '.docx', '.csv', '.mp3', '.mp4', '.jpg', '.jpeg', '.png'}
+        supported_extensions = {
+            '.pdf', '.txt', '.md', '.docx', '.csv',  # Documents
+            '.mp3', '.m4a', '.wav', '.aac', '.ogg', '.opus',  # Audio
+            '.mp4',  # Video
+            '.jpg', '.jpeg', '.png', '.gif', '.webp',  # Images
+        }
         file_extension = file_path.suffix.lower()
         if file_extension not in supported_extensions:
             raise FileValidationError(

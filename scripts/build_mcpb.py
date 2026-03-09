@@ -64,6 +64,8 @@ def build_mcpb() -> None:
     # Package as zip
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.write(MANIFEST, "manifest.json")
+        launcher = PROJECT_ROOT / "desktop-extension" / "run_server.py"
+        zf.write(launcher, "run_server.py")
 
     size_kb = output.stat().st_size / 1024
     print(f"\n✅ Built: {output.name} ({size_kb:.1f} KB)")
