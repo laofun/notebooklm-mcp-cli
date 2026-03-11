@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.4.5] - 2026-03-10
+
+### Fixed
+- **`nlm doctor` crash on Windows (Issue #87)** — Fixed `UnicodeDecodeError` when running `claude mcp list` on Windows systems with non-UTF-8 default encodings (e.g., `cp936`, `cp1252`). Added explicit `encoding="utf-8"` and `errors="replace"` to the subprocess call. Also added a null check for `result.stdout` to prevent `AttributeError` when the subprocess returns no output.
+- **Silent Chrome launch failures on Windows (Issue #86)** — `launch_chrome_process` was silently swallowing all `subprocess.Popen` exceptions, causing `nlm login` to report the cryptic "Cannot connect to browser on port XXXX" with no indication of what went wrong. Now logs the browser path, port, and exception details so users get actionable error messages. Added debug logging for successful launches as well.
+
 ## [0.4.4] - 2026-03-08
 
 ### Fixed
