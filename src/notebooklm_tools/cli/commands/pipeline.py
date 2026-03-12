@@ -23,7 +23,7 @@ def pipeline_run(
     input_url: str = typer.Option("", "--input-url", "-u", help="URL variable ($INPUT_URL)"),
 ) -> None:
     """Execute a pipeline on a notebook."""
-    from notebooklm_tools.mcp.tools._utils import get_client
+    from notebooklm_tools.cli.utils import get_client
 
     try:
         client = get_client()
@@ -92,7 +92,7 @@ def pipeline_create(
 
     try:
         from pathlib import Path
-        data = yaml.safe_load(Path(file).read_text())
+        data = yaml.safe_load(Path(file).read_text(encoding="utf-8"))
         steps = data.get("steps", []) if isinstance(data, dict) else []
         desc = description or data.get("description", "")
 

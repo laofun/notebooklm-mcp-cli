@@ -41,7 +41,7 @@ def _load_tags() -> dict[str, TagEntry]:
     if not path.exists():
         return {}
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         return data
     except (json.JSONDecodeError, KeyError):
         return {}
@@ -51,7 +51,7 @@ def _save_tags(tags: dict[str, TagEntry]) -> None:
     """Save tags to disk."""
     path = _get_tags_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(tags, indent=2, ensure_ascii=False))
+    path.write_text(json.dumps(tags, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def tag_add(

@@ -244,7 +244,7 @@ def _load_pipeline(name: str) -> dict | None:
     user_file = _get_pipelines_dir() / f"{name}.yaml"
     if user_file.exists():
         try:
-            data = yaml.safe_load(user_file.read_text())
+            data = yaml.safe_load(user_file.read_text(encoding="utf-8"))
             return data if isinstance(data, dict) else None
         except yaml.YAMLError:
             return None
@@ -273,7 +273,7 @@ def pipeline_list() -> list[PipelineInfo]:
     pipelines_dir = _get_pipelines_dir()
     for f in sorted(pipelines_dir.glob("*.yaml")):
         try:
-            data = yaml.safe_load(f.read_text())
+            data = yaml.safe_load(f.read_text(encoding="utf-8"))
             if isinstance(data, dict):
                 pipelines.append({
                     "name": f.stem,
@@ -332,7 +332,7 @@ def pipeline_create(
     }
 
     filepath = _get_pipelines_dir() / f"{name}.yaml"
-    filepath.write_text(yaml.dump(pipeline_def, default_flow_style=False))
+    filepath.write_text(yaml.dump(pipeline_def, default_flow_style=False), encoding="utf-8")
 
     return {
         "name": name,
