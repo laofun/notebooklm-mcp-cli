@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.9] - 2026-03-16
+
+### Added
+- **CC-Claw Skill Support** — Added `cc-claw` as a supported tool for `nlm skill install cc-claw` (`~/.cc-claw/workspace/skills/nlm-skill/`).
+
+### Fixed
+- **Windows CLI Argument Parsing (Issue #96)** — Fixed a bug where running `nlm add url <notebook_id> "https://..."` on Windows PowerShell incorrectly parsed the URL string into a list of characters, attempting to add dozens of duplicate sources instead of one.
+- **Service Layer Robustness** — Added internal safeguards ensuring single string URL parsing never falls through to character unpacking across the API service boundary.
+
 ## [0.4.8] - 2026-03-14
 
 ### Added

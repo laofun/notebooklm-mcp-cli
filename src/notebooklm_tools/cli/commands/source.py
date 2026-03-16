@@ -77,6 +77,8 @@ def add_source(
 
     # Normalize url list: typer gives None or a list
     urls = url or []
+    if isinstance(urls, str):
+        urls = [urls]
     has_url = len(urls) > 0
 
     # Validate that exactly one source type is provided (CLI-specific UX)
