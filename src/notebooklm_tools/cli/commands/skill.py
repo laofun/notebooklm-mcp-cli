@@ -32,11 +32,11 @@ TOOL_CONFIGS = {
         "format": "skill.md",
         "description": "Cursor AI editor",
     },
-    "codex": {
+    "agents": {
         "user": Path.home() / ".agents/skills/nlm-skill",
         "project": Path(".agents/skills/nlm-skill"),
         "format": "skill.md",
-        "description": "OpenAI Codex CLI",
+        "description": "Generic agent skill (Gemini CLI, Codex, and others)",
     },
     "opencode": {
         "user": Path.home() / ".config/opencode/skills/nlm-skill",
@@ -44,15 +44,9 @@ TOOL_CONFIGS = {
         "format": "skill.md",
         "description": "OpenCode AI assistant",
     },
-    "gemini-cli": {
-        "user": Path.home() / ".gemini/skills/nlm-skill",
-        "project": Path(".gemini/skills/nlm-skill"),
-        "format": "skill.md",
-        "description": "Google Gemini CLI",
-    },
     "antigravity": {
         "user": Path.home() / ".gemini/antigravity/skills/nlm-skill",
-        "project": Path(".agent/skills/nlm-skill"),
+        "project": Path(".agents/skills/nlm-skill"),
         "format": "skill.md",
         "description": "Antigravity agent framework",
     },
@@ -67,6 +61,12 @@ TOOL_CONFIGS = {
         "project": Path(".openclaw/workspace/skills/nlm-skill"),
         "format": "skill.md",
         "description": "OpenClaw AI agent framework",
+    },
+    "cc-claw": {
+        "user": Path.home() / ".cc-claw/workspace/skills/nlm-skill",
+        "project": Path(".cc-claw/workspace/skills/nlm-skill"),
+        "format": "skill.md",
+        "description": "CC-Claw AI agent framework",
     },
     "other": {
         "project": Path("./nlm-skill-export"),
@@ -123,7 +123,7 @@ def check_install_status(tool: str, level: str = "user") -> tuple[bool, Optional
         # Check for markers in AGENTS.md
         if not install_path.exists():
             return False, install_path
-        content = install_path.read_text()
+        content = install_path.read_text(encoding="utf-8")
         return "<!-- nlm-skill-start -->" in content, install_path
     elif config["format"] == "all":
         # Check if export directory exists
@@ -134,7 +134,7 @@ def check_install_status(tool: str, level: str = "user") -> tuple[bool, Optional
 
 def _inject_version_to_frontmatter(skill_path: Path) -> None:
     """Inject the current package version into the SKILL.md YAML frontmatter."""
-    content = skill_path.read_text()
+    content = skill_path.read_text(encoding="utf-8")
     if content.startswith("---"):
         # Find the closing --- of frontmatter
         end_idx = content.index("---", 3)
@@ -147,7 +147,7 @@ def _inject_version_to_frontmatter(skill_path: Path) -> None:
     else:
         # No frontmatter — prepend one with version
         content = f"---\nversion: \"{__version__}\"\n---\n\n" + content
-    skill_path.write_text(content)
+    skill_path.write_text(content, encoding="utf-8")
 
 
 def _get_installed_version(tool: str, level: str) -> Optional[str]:
@@ -163,7 +163,7 @@ def _get_installed_version(tool: str, level: str) -> Optional[str]:
         if not install_path.exists():
             return None
         try:
-            content = install_path.read_text()
+            content = install_path.read_text(encoding="utf-8")
             match = re.search(r'<!-- nlm-version: ([\d.]+) -->', content)
             return match.group(1) if match else None
         except Exception:
@@ -179,7 +179,7 @@ def _get_installed_version(tool: str, level: str) -> Optional[str]:
         return None
 
     try:
-        content = skill_file.read_text()
+        content = skill_file.read_text(encoding="utf-8")
         match = re.search(r'version:\s*"([^"]*)"', content)
         return match.group(1) if match else None
     except Exception:
@@ -189,7 +189,7 @@ def _get_installed_version(tool: str, level: str) -> Optional[str]:
 def _inject_version_to_agents_md(agents_path: Path) -> None:
     """Inject a version comment into the NLM section of AGENTS.md."""
     try:
-        content = agents_path.read_text()
+        content = agents_path.read_text(encoding="utf-8")
         version_comment = f"<!-- nlm-version: {__version__} -->"
 
         # Remove any existing version comment
@@ -202,7 +202,7 @@ def _inject_version_to_agents_md(agents_path: Path) -> None:
                 start_marker,
                 f"{start_marker}\n{version_comment}",
             )
-            agents_path.write_text(content)
+            agents_path.write_text(content, encoding="utf-8")
     except Exception:
         pass
 
@@ -241,11 +241,11 @@ def install_agents_md(install_path: Path) -> None:
     """Install/update AGENTS.md format (append with markers)."""
     data_dir = get_data_dir()
     section_src = data_dir / "AGENTS_SECTION.md"
-    section_content = section_src.read_text()
+    section_content = section_src.read_text(encoding="utf-8")
 
     # Read existing AGENTS.md or create new
     if install_path.exists():
-        content = install_path.read_text()
+        content = install_path.read_text(encoding="utf-8")
 
         # Check if already installed
         if "<!-- nlm-skill-start -->" in content:
@@ -272,7 +272,7 @@ def install_agents_md(install_path: Path) -> None:
         install_path.parent.mkdir(parents=True, exist_ok=True)
         content = section_content + "\n"
 
-    install_path.write_text(content)
+    install_path.write_text(content, encoding="utf-8")
 
     # Inject version marker into the NLM section
     _inject_version_to_agents_md(install_path)
@@ -310,13 +310,13 @@ This directory contains NotebookLM skill files in multiple formats.
 ## Formats Available
 
 ### nlm-skill/
-- `SKILL.md` - Main skill file for Claude Code, OpenCode, Gemini CLI, Antigravity
+- `SKILL.md` - Main skill file for Claude Code, OpenCode, Gemini CLI, Antigravity, Codex
 - `references/` - Additional reference documentation
 
 This is the standard skill directory structure used by all automated installations.
 
 ### AGENTS_SECTION.md
-- Section format for Codex AGENTS.md (copy/paste into your AGENTS.md)
+- Section format for AGENTS.md (copy/paste into your AGENTS.md)
 
 ## Installation
 
@@ -330,9 +330,9 @@ cp -r nlm-skill ~/.claude/skills/
 cp -r nlm-skill ~/.config/opencode/skills/
 ```
 
-### Gemini CLI
+### Gemini CLI / Codex / Agents (cross-tool compatible)
 ```bash
-cp -r nlm-skill ~/.gemini/skills/
+cp -r nlm-skill ~/.agents/skills/
 ```
 
 ### Antigravity
@@ -343,13 +343,8 @@ cp -r nlm-skill ~/.gemini/antigravity/skills/
 Or for project-level installation, copy to:
 - Claude Code: `.claude/skills/`
 - OpenCode: `.opencode/skills/`
-- Gemini CLI: `.gemini/skills/`
-- Antigravity: `.agent/skills/`
-
-### Codex
-```bash
-cp -r nlm-skill ~/.agents/skills/
-```
+- Gemini CLI / Codex: `.agents/skills/`
+- Antigravity: `.agents/skills/`
 
 ## Automated Installation
 
@@ -358,13 +353,16 @@ Instead of manual copying, you can use:
 nlm skill install <tool>
 ```
 
-Where `<tool>` is: claude-code, cursor, codex, opencode, gemini-cli, antigravity, cline, openclaw.
+Where `<tool>` is: claude-code, cursor, agents, opencode, antigravity, cline, openclaw, cc-claw.
+
+> **Note:** `agents` replaces the old `gemini-cli` and `codex` entries. The `.agents/skills/`
+> path is the cross-tool compatible alias supported by Gemini CLI (v0.33.1+), Codex, and others.
 """
 
-    (install_path / "README.md").write_text(readme_content)
+    (install_path / "README.md").write_text(readme_content, encoding="utf-8")
 
     console.print(f"[green]✓[/green] Exported all formats to {install_path}")
-    console.print(f"  [dim]• nlm-skill/ (skill directory for Claude Code, OpenCode, Gemini, Antigravity)")
+    console.print(f"  [dim]• nlm-skill/ (skill directory for Claude Code, OpenCode, Agents, Antigravity)")
     console.print(f"  [dim]• AGENTS_SECTION.md (for Codex)")
     console.print(f"  [dim]• README.md (installation instructions)")
 
@@ -373,7 +371,7 @@ Where `<tool>` is: claude-code, cursor, codex, opencode, gemini-cli, antigravity
 def install(
     tool: str = typer.Argument(
         ...,
-        help="Tool to install skill for (claude-code, cursor, codex, opencode, gemini-cli, antigravity, other)",
+        help="Tool to install skill for (claude-code, cursor, agents, opencode, antigravity, other)",
         shell_complete=complete_tool_name,
     ),
     level: Literal["user", "project"] = typer.Option(
@@ -388,7 +386,7 @@ def install(
 
     Examples:
         nlm skill install claude-code
-        nlm skill install codex --level project
+        nlm skill install agents --level project
         nlm skill install other  # Export all formats
     """
     if tool not in TOOL_CONFIGS:
@@ -537,7 +535,7 @@ def uninstall(
         elif format_type == "agents.md":
             # Remove section from AGENTS.md
             if install_path.exists():
-                content = install_path.read_text()
+                content = install_path.read_text(encoding="utf-8")
                 start_marker = "<!-- nlm-skill-start -->"
                 end_marker = "<!-- nlm-skill-end -->"
 
@@ -558,7 +556,7 @@ def uninstall(
                     else:
                         content = ""
 
-                    install_path.write_text(content)
+                    install_path.write_text(content, encoding="utf-8")
                     console.print(f"[green]✓[/green] Removed NLM section from {install_path}")
                 else:
                     console.print(f"[yellow]![/yellow] Markers not found in {install_path}")
@@ -744,5 +742,5 @@ def show() -> None:
         console.print(f"[red]Error:[/red] SKILL.md not found")
         raise typer.Exit(1)
 
-    content = skill_file.read_text()
+    content = skill_file.read_text(encoding="utf-8")
     console.print(content)

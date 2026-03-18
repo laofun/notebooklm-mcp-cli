@@ -4,6 +4,67 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.4.9] - 2026-03-16
+
+### Added
+- **CC-Claw Skill Support** — Added `cc-claw` as a supported tool for `nlm skill install cc-claw` (`~/.cc-claw/workspace/skills/nlm-skill/`).
+
+### Fixed
+- **Windows CLI Argument Parsing (Issue #96)** — Fixed a bug where running `nlm add url <notebook_id> "https://..."` on Windows PowerShell incorrectly parsed the URL string into a list of characters, attempting to add dozens of duplicate sources instead of one.
+- **Service Layer Robustness** — Added internal safeguards ensuring single string URL parsing never falls through to character unpacking across the API service boundary.
+
+## [0.4.8] - 2026-03-14
+
+### Added
+- **Native Chat History Persistence** — Both the CLI (`nlm notebook query`) and the MCP server now perfectly persist their chat history directly into the NotebookLM web UI. All prompts sent via CLI or MCP agents will now appear in the notebook's native chat panel, sharing the same conversational context as the web UI. (Closes #92)
+- **OpenCode Support** — Full support for OpenCode in the `nlm setup` command (`nlm setup add opencode`) to automatically configure the NotebookLM MCP server for OpenCode. Includes smart config array injection and parsing. Thanks to **@woohyun212** for the comprehensive implementation and thorough unit tests (PR #95, closes #95).
+
+### Fixed
+- **MCP Profile Switching** — Fixed a bug where the MCP server wouldn't respect dynamic authentication profile changes made via `nlm login switch <profile>`. The server now automatically detects token file changes and gracefully reloads the NotebookLM client in real-time, matching the active profile perfectly.
+- **CC-Claw Skill Support** — Added `cc-claw` as a supported tool for `nlm skill install cc-claw` (`~/.cc-claw/workspace/skills/nlm-skill/`).
+## [0.4.7] - 2026-03-13
+
+### Changed
+- **Skill path migration: `.gemini/skills/` → `.agents/skills/`** — Starting with Gemini CLI v0.33.1, `.agents/skills/` is the recommended cross-tool compatible path (higher priority than `.gemini/skills/`). `nlm skill install gemini-cli` and `nlm skill install codex` are replaced by `nlm skill install agents`, which installs to `~/.agents/skills/nlm-skill/`. This path works for Gemini CLI, Codex, and any tool that reads `.agents/skills/`. Users with existing `gemini-cli` or `codex` installations should run `nlm skill install agents` to reinstall at the new location.
+- **Documentation updates** — Added v0.4.6 features (batch, cross-notebook, pipelines, tags) to SKILL.md, AGENTS_SECTION.md, and API_REFERENCE.md. Removed stale QUICK_REFERENCE.md.
+
+## [0.4.6] - 2026-03-12
+
+### Added
+- **Batch Operations** — Perform actions across multiple notebooks at once. Thanks to **@fabianafurtadoff** for this contribution (PR #90)!
+  - `nlm batch query` — Query multiple notebooks with the same question
+  - `nlm batch add-source` — Add a URL to multiple notebooks
+  - `nlm batch create` — Create multiple notebooks at once
+  - `nlm batch delete` — Delete multiple notebooks (requires `--confirm`)
+  - `nlm batch studio` — Generate artifacts across multiple notebooks
+  - MCP: Consolidated `batch` tool with `action` parameter (query|add_source|create|delete|studio)
+- **Cross-Notebook Query** — Query multiple notebooks and get aggregated answers with per-notebook citations. (PR #90, @fabianafurtadoff)
+  - `nlm cross query "question" --notebooks "id1,id2"` — Ask across specific notebooks
+  - `nlm cross query "question" --tags "ai,research"` — Query by tag
+  - MCP: `cross_notebook_query` tool
+- **Pipelines** — Define and execute multi-step notebook workflows. (PR #90, @fabianafurtadoff)
+  - `nlm pipeline list` — List available pipelines (3 builtin: ingest-and-podcast, research-and-report, multi-format)
+  - `nlm pipeline run <notebook> <pipeline-name>` — Execute a pipeline
+  - User-defined pipelines via YAML files in `~/.notebooklm-mcp-cli/pipelines/`
+  - MCP: Consolidated `pipeline` tool with `action` parameter (run|list)
+- **Smart Select & Tagging** — Tag notebooks and find relevant ones by keyword matching. (PR #90, @fabianafurtadoff)
+  - `nlm tag add <notebook> --tags "ai,research"` — Add tags
+  - `nlm tag remove <notebook> --tags "ai"` — Remove tags
+  - `nlm tag list` — List all tagged notebooks
+  - `nlm tag select "query"` — Find notebooks by tag match
+  - MCP: Consolidated `tag` tool with `action` parameter (add|remove|list|select)
+- **Studio List Types** — Reference of all artifact types and their options, accessible via `studio_status(action="list_types")`
+- **73 new unit tests** covering all new service modules (total: 576 tests)
+
+### Changed
+- **MCP Tool Consolidation** — Reduced 13 new tools to 4 consolidated tools with action parameters, keeping total MCP tools at 35 (down from what would have been 44). Follows existing patterns (`note`, `source_add`).
+
+### Fixed
+- **CLI import violations** — Fixed 3 CLI command files (`batch.py`, `cross.py`, `pipeline.py`) importing `get_client` from `mcp/tools/_utils` instead of `cli/utils`, violating architecture layering
+- **Missing UTF-8 encoding** — Added `encoding='utf-8'` to 6 file I/O calls in `smart_select.py` and `pipeline.py` to prevent `UnicodeDecodeError` on Windows
+- **Cross-notebook display crash** — Fixed `sources_used` field handling in `cross.py` display formatting (could crash on string values)
+
 ## [0.4.5] - 2026-03-10
 
 ### Fixed

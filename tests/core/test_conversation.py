@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from notebooklm_tools.core.base import BaseClient
 from notebooklm_tools.core.conversation import ConversationMixin, QueryRejectedError
+from notebooklm_tools.core.data_types import ConversationTurn
 
 
 class TestConversationMixinImport:
@@ -27,6 +28,8 @@ class TestConversationMixinImport:
             "query",
             "clear_conversation",
             "get_conversation_history",
+            "get_conversation_id",
+            "delete_chat_history",
             "_build_conversation_history",
             "_cache_conversation_turn",
             "_parse_query_response",
@@ -35,6 +38,145 @@ class TestConversationMixinImport:
         ]
         for method in expected_methods:
             assert hasattr(ConversationMixin, method), f"Missing method: {method}"
+
+
+class TestGetConversationId:
+    """Test get_conversation_id method for fetching server-side conversation IDs."""
+
+    def _make_mixin(self):
+        return ConversationMixin(cookies={"test": "cookie"}, csrf_token="test")
+
+    def test_returns_id_from_nested_list(self):
+        """Server returns [[conv_id, ...]] — extract the conv_id string."""
+        mixin = self._make_mixin()
+        with patch.object(mixin, "_call_rpc", return_value=[["conv-uuid-123", None, 12345]]):
+            result = mixin.get_conversation_id("nb-123")
+        assert result == "conv-uuid-123"
+
+    def test_returns_id_from_flat_string_list(self):
+        """Server returns [[conv_id]] — double-nested format."""
+        mixin = self._make_mixin()
+        with patch.object(mixin, "_call_rpc", return_value=[["conv-uuid-456"]]):
+            result = mixin.get_conversation_id("nb-123")
+        assert result == "conv-uuid-456"
+
+    def test_returns_none_on_null_response(self):
+        """Server returns None — no conversation exists."""
+        mixin = self._make_mixin()
+        with patch.object(mixin, "_call_rpc", return_value=None):
+            result = mixin.get_conversation_id("nb-123")
+        assert result is None
+
+    def test_returns_none_on_empty_list(self):
+        """Server returns [] — no conversation exists."""
+        mixin = self._make_mixin()
+        with patch.object(mixin, "_call_rpc", return_value=[]):
+            result = mixin.get_conversation_id("nb-123")
+        assert result is None
+
+    def test_returns_none_on_malformed_inner_list(self):
+        """Server returns [[]] — malformed but no crash."""
+        mixin = self._make_mixin()
+        with patch.object(mixin, "_call_rpc", return_value=[[]]):
+            result = mixin.get_conversation_id("nb-123")
+        assert result is None
+
+    def test_returns_none_on_rpc_exception(self):
+        """RPC call fails — returns None gracefully, not an exception."""
+        mixin = self._make_mixin()
+        with patch.object(mixin, "_call_rpc", side_effect=Exception("network error")):
+            result = mixin.get_conversation_id("nb-123")
+        assert result is None
+
+    def test_calls_correct_rpc(self):
+        """Verifies it calls the correct RPC ID with right params."""
+        mixin = self._make_mixin()
+        with patch.object(mixin, "_call_rpc", return_value=None) as mock_rpc:
+            mixin.get_conversation_id("nb-123")
+        mock_rpc.assert_called_once_with(
+            mixin.RPC_GET_CONVERSATIONS, [[], None, "nb-123", 20],
+            path="/notebook/nb-123",
+        )
+
+
+class TestDeleteChatHistory:
+    """Test delete_chat_history method."""
+
+    def _make_mixin(self):
+        return ConversationMixin(cookies={"test": "cookie"}, csrf_token="test")
+
+    def test_delete_success(self):
+        """Server acknowledges deletion — returns True."""
+        mixin = self._make_mixin()
+        with patch.object(mixin, "_call_rpc", return_value=[]):
+            result = mixin.delete_chat_history("nb-123", "conv-456")
+        assert result is True
+
+    def test_delete_clears_local_cache(self):
+        """Deletion also clears the local conversation cache."""
+        mixin = self._make_mixin()
+        mixin._conversation_cache["conv-456"] = [
+            ConversationTurn(query="q", answer="a", turn_number=1)
+        ]
+        with patch.object(mixin, "_call_rpc", return_value=[]):
+            mixin.delete_chat_history("nb-123", "conv-456")
+        assert "conv-456" not in mixin._conversation_cache
+
+    def test_delete_no_local_cache_no_crash(self):
+        """Deletion when no local cache exists doesn't crash."""
+        mixin = self._make_mixin()
+        with patch.object(mixin, "_call_rpc", return_value=[]):
+            result = mixin.delete_chat_history("nb-123", "conv-789")
+        assert result is True
+
+    def test_calls_correct_rpc(self):
+        """Verifies it calls the correct RPC ID with right params."""
+        mixin = self._make_mixin()
+        with patch.object(mixin, "_call_rpc", return_value=[]) as mock_rpc:
+            mixin.delete_chat_history("nb-123", "conv-456")
+        mock_rpc.assert_called_once_with(
+            mixin.RPC_DELETE_CHAT_HISTORY, ["nb-123", "conv-456"],
+            path="/notebook/nb-123",
+        )
+
+
+class TestQueryUsesServerConversationId:
+    """Test that query() fetches server-side conversation ID when no ID is provided."""
+
+    def _make_mixin(self):
+        return ConversationMixin(cookies={"test": "cookie"}, csrf_token="test")
+
+    def test_uses_server_conversation_id(self):
+        """When server has a conversation ID, query() uses it instead of uuid."""
+        mixin = self._make_mixin()
+        with patch.object(mixin, "get_conversation_id", return_value="server-conv-id"), \
+             patch.object(mixin, "_get_client") as mock_client:
+            mock_response = mock_client.return_value.post.return_value
+            mock_response.text = ")]}'\n100\n" + json.dumps(
+                [["wrb.fr", None, json.dumps([["A long answer from the server.", None, [], None, [1]]])]]
+            )
+            mock_response.raise_for_status = lambda: None
+
+            result = mixin.query("nb-123", "Hello?", source_ids=["src-1"])
+
+        assert result["conversation_id"] == "server-conv-id"
+
+    def test_falls_back_to_uuid_when_no_server_id(self):
+        """When server returns None, query() generates a random UUID."""
+        mixin = self._make_mixin()
+        with patch.object(mixin, "get_conversation_id", return_value=None), \
+             patch.object(mixin, "_get_client") as mock_client:
+            mock_response = mock_client.return_value.post.return_value
+            mock_response.text = ")]}'\n100\n" + json.dumps(
+                [["wrb.fr", None, json.dumps([["A long answer from the server.", None, [], None, [1]]])]]
+            )
+            mock_response.raise_for_status = lambda: None
+
+            result = mixin.query("nb-123", "Hello?", source_ids=["src-1"])
+
+        # Should be a valid UUID (36 chars with hyphens)
+        assert result["conversation_id"] != "server-conv-id"
+        assert len(result["conversation_id"]) == 36
 
 
 class TestConversationMixinMethods:
@@ -73,7 +215,7 @@ class TestConversationMixinMethods:
         """Test that _parse_query_response handles empty input."""
         mixin = ConversationMixin(cookies={"test": "cookie"}, csrf_token="test")
         
-        answer, citation_data = mixin._parse_query_response("")
+        answer, citation_data, _ = mixin._parse_query_response("")
         
         assert answer == ""
         assert citation_data == {}
@@ -82,7 +224,7 @@ class TestConversationMixinMethods:
         """Test that _extract_answer_from_chunk handles invalid JSON."""
         mixin = ConversationMixin(cookies={"test": "cookie"}, csrf_token="test")
         
-        text, is_answer, cdata = mixin._extract_answer_from_chunk("not valid json")
+        text, is_answer, cdata, _ = mixin._extract_answer_from_chunk("not valid json")
         
         assert text is None
         assert is_answer is False
@@ -201,7 +343,7 @@ class TestErrorDetection:
         error_chunk = json.dumps([["wrb.fr", None, None, None, None, [3]]])
         raw = self._build_raw_response(answer_chunk, error_chunk)
 
-        answer, _ = mixin._parse_query_response(raw)
+        answer, _, _ = mixin._parse_query_response(raw)
         assert answer == answer_text
 
     def test_parse_response_returns_empty_on_no_error_no_answer(self):
@@ -210,7 +352,7 @@ class TestErrorDetection:
         metadata_chunk = json.dumps([["di", 206]])
         raw = self._build_raw_response(metadata_chunk)
 
-        answer, citation_data = mixin._parse_query_response(raw)
+        answer, citation_data, _ = mixin._parse_query_response(raw)
         assert answer == ""
         assert citation_data == {}
 
@@ -287,7 +429,7 @@ class TestCitationExtraction:
         inner = self._build_answer_inner(answer, passages)
         chunk = json.dumps([["wrb.fr", None, inner]])
 
-        text, is_answer, cdata = mixin._extract_answer_from_chunk(chunk)
+        text, is_answer, cdata, _ = mixin._extract_answer_from_chunk(chunk)
 
         assert text == answer
         assert is_answer is True
@@ -305,7 +447,7 @@ class TestCitationExtraction:
         inner = self._build_answer_inner("A long enough answer text to pass the length check.", passages)
         chunk = json.dumps([["wrb.fr", None, inner]])
 
-        _, _, cdata = mixin._extract_answer_from_chunk(chunk)
+        _, _, cdata, _ = mixin._extract_answer_from_chunk(chunk)
 
         assert cdata["sources_used"] == ["source-B", "source-A"]
 
@@ -315,7 +457,7 @@ class TestCitationExtraction:
         inner = self._build_answer_inner("A long enough answer text to pass the length check.", passages=None)
         chunk = json.dumps([["wrb.fr", None, inner]])
 
-        text, is_answer, cdata = mixin._extract_answer_from_chunk(chunk)
+        text, is_answer, cdata, _ = mixin._extract_answer_from_chunk(chunk)
 
         assert text is not None
         assert is_answer is True
@@ -327,7 +469,7 @@ class TestCitationExtraction:
         inner = self._build_answer_inner("A long enough answer text to pass the length check.", passages=[])
         chunk = json.dumps([["wrb.fr", None, inner]])
 
-        _, _, cdata = mixin._extract_answer_from_chunk(chunk)
+        _, _, cdata, _ = mixin._extract_answer_from_chunk(chunk)
 
         assert cdata == {}
 
@@ -343,7 +485,7 @@ class TestCitationExtraction:
         inner = self._build_answer_inner("A long enough answer text to pass the length check.", passages)
         chunk = json.dumps([["wrb.fr", None, inner]])
 
-        _, _, cdata = mixin._extract_answer_from_chunk(chunk)
+        _, _, cdata, _ = mixin._extract_answer_from_chunk(chunk)
 
         assert cdata["sources_used"] == ["source-A", "source-B"]
         assert cdata["citations"] == {1: "source-A", 4: "source-B"}
@@ -356,7 +498,7 @@ class TestCitationExtraction:
         inner = json.dumps([first_elem])
         chunk = json.dumps([["wrb.fr", None, inner]])
 
-        text, is_answer, cdata = mixin._extract_answer_from_chunk(chunk)
+        text, is_answer, cdata, _ = mixin._extract_answer_from_chunk(chunk)
 
         assert text is not None
         assert is_answer is False
@@ -377,7 +519,7 @@ class TestCitationExtraction:
         long_chunk = json.dumps([["wrb.fr", None, long_inner]])
         raw = self._build_raw_response(short_chunk, long_chunk)
 
-        answer, citation_data = mixin._parse_query_response(raw)
+        answer, citation_data, _ = mixin._parse_query_response(raw)
 
         assert answer == long_answer
         assert citation_data["sources_used"] == ["src-X", "src-Y"]
@@ -390,7 +532,7 @@ class TestCitationExtraction:
         chunk = json.dumps([["wrb.fr", None, inner]])
         raw = self._build_raw_response(chunk)
 
-        answer, citation_data = mixin._parse_query_response(raw)
+        answer, citation_data, _ = mixin._parse_query_response(raw)
 
         assert answer != ""
         assert citation_data == {}

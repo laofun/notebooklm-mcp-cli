@@ -116,6 +116,65 @@ class ConversationMixin(BaseClient):
             for t in turns
         ]
 
+    def get_conversation_id(self, notebook_id: str) -> str | None:
+        """Fetch the persistent conversation ID for a notebook from the server.
+
+        NotebookLM assigns each notebook a persistent conversation ID that tracks
+        chat history across sessions. This ID is what makes chats appear in the
+        web UI's chat panel.
+
+        Args:
+            notebook_id: The notebook UUID
+
+        Returns:
+            The conversation UUID string if one exists, or None for new notebooks.
+        """
+        try:
+            result = self._call_rpc(
+                self.RPC_GET_CONVERSATIONS,
+                [[], None, notebook_id, 20],
+                path=f"/notebook/{notebook_id}",
+            )
+        except Exception:
+            # Non-critical: fall back to generating a new UUID
+            logger.debug("Failed to fetch conversation ID for notebook %s", notebook_id)
+            return None
+
+        # Response format: [[[conv_id]]] — triple-nested array
+        if result and isinstance(result, list):
+            try:
+                # Navigate: result[0] -> [conv_id] or [[conv_id]]
+                level1 = result[0]
+                if isinstance(level1, list) and len(level1) > 0:
+                    level2 = level1[0]
+                    if isinstance(level2, str):
+                        return level2
+                    elif isinstance(level2, list) and len(level2) > 0:
+                        if isinstance(level2[0], str):
+                            return level2[0]
+            except (IndexError, TypeError):
+                pass
+        return None
+
+    def delete_chat_history(self, notebook_id: str, conversation_id: str) -> bool:
+        """Delete the chat history for a notebook.
+
+        Args:
+            notebook_id: The notebook UUID
+            conversation_id: The conversation UUID to delete
+
+        Returns:
+            True if the deletion was acknowledged by the server.
+        """
+        result = self._call_rpc(
+            self.RPC_DELETE_CHAT_HISTORY,
+            [notebook_id, conversation_id],
+            path=f"/notebook/{notebook_id}",
+        )
+        # Also clear local cache if present
+        self._conversation_cache.pop(conversation_id, None)
+        return result is not None
+
     # =========================================================================
     # Query Operations
     # =========================================================================
@@ -166,8 +225,16 @@ class ConversationMixin(BaseClient):
         # Determine if this is a new conversation or follow-up
         is_new_conversation = conversation_id is None
         if is_new_conversation:
-            conversation_id = str(uuid.uuid4())
-            conversation_history = None
+            # Try to get the persistent conversation ID from the server first.
+            # This is what makes CLI/MCP chats appear in the web UI's chat history.
+            server_conv_id = self.get_conversation_id(notebook_id)
+            if server_conv_id:
+                conversation_id = server_conv_id
+                # Build history from local cache if we have it
+                conversation_history = self._build_conversation_history(conversation_id)
+            else:
+                conversation_id = str(uuid.uuid4())
+                conversation_history = None
         else:
             # Check if we have cached history for this conversation
             conversation_history = self._build_conversation_history(conversation_id)
@@ -218,7 +285,16 @@ class ConversationMixin(BaseClient):
         logger.debug("Raw query response (first 2000 chars): %s", response.text[:2000])
 
         # Parse streaming response
-        answer_text, citation_data = self._parse_query_response(response.text)
+        answer_text, citation_data, server_conv_id = self._parse_query_response(response.text)
+
+        # If the server assigned a conversation ID in the response, use it.
+        # This is the key mechanism for chat history persistence — the server
+        # returns its own conversation ID which tracks the chat across sessions.
+        if server_conv_id and server_conv_id != conversation_id:
+            # Migrate local cache to the server-assigned ID
+            if conversation_id in self._conversation_cache:
+                self._conversation_cache[server_conv_id] = self._conversation_cache.pop(conversation_id)
+            conversation_id = server_conv_id
 
         # Cache this turn for future follow-ups (only if we got an answer)
         if answer_text:
@@ -270,31 +346,20 @@ class ConversationMixin(BaseClient):
     # Response Parsing
     # =========================================================================
 
-    def _parse_query_response(self, response_text: str) -> tuple[str, dict]:
-        """Parse the streaming query response and extract the final answer.
+    def _parse_query_response(self, response_text: str) -> tuple[str, dict, str | None]:
+        """Parse the streaming response from the query endpoint.
 
         The query endpoint returns a streaming response with multiple chunks.
         Each chunk has a type indicator: 1 = actual answer, 2 = thinking step.
-
-        Response format:
-        )]}'
-        <byte_count>
-        [[["wrb.fr", null, "<json_with_text>", ...]]]
-        ...more chunks...
 
         Strategy: Find the LONGEST chunk that is marked as type 1 (actual answer).
         If no type 1 chunks found, fall back to longest overall.
         If no answer at all but Google returned an error, raise QueryRejectedError.
 
-        Args:
-            response_text: Raw response text from the query endpoint
-
         Returns:
-            Tuple of (answer_text, citation_data) where citation_data has
-            'sources_used' and 'citations' keys (or empty dict).
-
-        Raises:
-            QueryRejectedError: If Google returned an error instead of an answer
+            Tuple of (answer_text, citation_data, server_conversation_id)
+            where server_conversation_id is the ID assigned by the NotebookLM
+            backend (used for persistent chat history), or None if not found.
         """
         # Remove anti-XSSI prefix
         if response_text.startswith(")]}'"):
@@ -305,19 +370,22 @@ class ConversationMixin(BaseClient):
         longest_thinking = ""
         answer_citation_data: dict = {}
         detected_errors: list[dict] = []
+        server_conv_id: str | None = None
 
         def _process_chunk(json_line: str) -> None:
-            nonlocal longest_answer, longest_thinking, answer_citation_data
+            nonlocal longest_answer, longest_thinking, answer_citation_data, server_conv_id
             error = self._extract_error_from_chunk(json_line)
             if error:
                 detected_errors.append(error)
                 return
-            text, is_answer, cdata = self._extract_answer_from_chunk(json_line)
+            text, is_answer, cdata, chunk_conv_id = self._extract_answer_from_chunk(json_line)
             if text:
                 if is_answer and len(text) > len(longest_answer):
                     longest_answer = text
                     if cdata:
                         answer_citation_data = cdata
+                    if chunk_conv_id:
+                        server_conv_id = chunk_conv_id
                 elif not is_answer and len(text) > len(longest_thinking):
                     longest_thinking = text
 
@@ -350,7 +418,7 @@ class ConversationMixin(BaseClient):
                 raw_detail=err.get("raw", ""),
             )
 
-        return result, answer_citation_data
+        return result, answer_citation_data, server_conv_id
 
     def _extract_error_from_chunk(self, json_str: str) -> dict | None:
         """Check if a JSON chunk contains a Google API error.
@@ -401,14 +469,14 @@ class ConversationMixin(BaseClient):
 
         return None
 
-    def _extract_answer_from_chunk(self, json_str: str) -> tuple[str | None, bool, dict]:
-        """Extract answer text and citation data from a single JSON chunk.
+    def _extract_answer_from_chunk(self, json_str: str) -> tuple[str | None, bool, dict, str | None]:
+        """Extract answer text, citation data, and server-assigned conversation ID from a single JSON chunk.
 
         The chunk structure is:
         [["wrb.fr", null, "<nested_json>", ...]]
 
         The nested_json contains:
-        [["answer_text", null, [conv_data], null, [fmt_segments, null, null, source_passages, type_code]]]
+        [["answer_text", null, [conv_id, hash, timestamp], null, [fmt_segments, null, null, source_passages, type_code]]]
 
         type_code: 1 = actual answer, 2 = thinking step
         source_passages (at first_elem[4][3]): list of passage entries, each containing
@@ -418,18 +486,19 @@ class ConversationMixin(BaseClient):
             json_str: A single JSON chunk from the response
 
         Returns:
-            Tuple of (text, is_answer, citation_data) where:
+            Tuple of (text, is_answer, citation_data, server_conv_id) where:
             - is_answer is True for actual answers (type 1)
             - citation_data is {"sources_used": [...], "citations": {num: source_id}}
               or empty dict if no citation data found
+            - server_conv_id is the conversation ID assigned by the server, or None
         """
         try:
             data = json.loads(json_str)
         except json.JSONDecodeError:
-            return None, False, {}
+            return None, False, {}, None
 
         if not isinstance(data, list) or len(data) == 0:
-            return None, False, {}
+            return None, False, {}, None
 
         for item in data:
             if not isinstance(item, list) or len(item) < 3:
@@ -454,17 +523,26 @@ class ConversationMixin(BaseClient):
                     if isinstance(answer_text, str) and len(answer_text) > 20:
                         is_answer = False
                         citation_data: dict = {}
+                        server_conv_id: str | None = None
+
+                        # Extract server-assigned conversation ID from conv_data
+                        # Structure: first_elem[2] = [conv_id, hash, timestamp]
+                        if len(first_elem) > 2 and isinstance(first_elem[2], list):
+                            conv_data = first_elem[2]
+                            if len(conv_data) > 0 and isinstance(conv_data[0], str):
+                                server_conv_id = conv_data[0]
+
                         if len(first_elem) > 4 and isinstance(first_elem[4], list):
                             type_info = first_elem[4]
                             if len(type_info) > 0 and isinstance(type_info[-1], int):
                                 is_answer = type_info[-1] == 1
                             if is_answer:
                                 citation_data = self._extract_citation_data(type_info)
-                        return answer_text, is_answer, citation_data
+                        return answer_text, is_answer, citation_data, server_conv_id
                 elif isinstance(first_elem, str) and len(first_elem) > 20:
-                    return first_elem, False, {}
+                    return first_elem, False, {}, None
 
-        return None, False, {}
+        return None, False, {}, None
 
     @staticmethod
     def _extract_cited_text(detail: list) -> str | None:

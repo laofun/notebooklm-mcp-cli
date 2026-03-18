@@ -161,3 +161,46 @@ def configure_chat(
         "Chat configuration returned falsy result",
         user_message="Failed to configure chat — no confirmation from API.",
     )
+
+
+class DeleteChatHistoryResult(TypedDict):
+    """Result of deleting chat history."""
+    notebook_id: str
+    message: str
+
+
+def delete_chat_history(
+    client: NotebookLMClient,
+    notebook_id: str,
+) -> DeleteChatHistoryResult:
+    """Delete the chat history for a notebook.
+
+    Fetches the notebook's persistent conversation ID, then deletes
+    the associated chat history from the server.
+
+    Args:
+        client: Authenticated NotebookLM client
+        notebook_id: Notebook UUID
+
+    Returns:
+        DeleteChatHistoryResult with confirmation message
+
+    Raises:
+        ServiceError: If no chat history exists or deletion fails
+    """
+    conv_id = client.get_conversation_id(notebook_id)
+    if not conv_id:
+        raise ServiceError(
+            "No chat history found for this notebook.",
+            user_message="This notebook has no chat history to delete.",
+        )
+
+    try:
+        client.delete_chat_history(notebook_id, conv_id)
+    except Exception as e:
+        raise ServiceError(f"Failed to delete chat history: {e}")
+
+    return {
+        "notebook_id": notebook_id,
+        "message": "Chat history deleted.",
+    }

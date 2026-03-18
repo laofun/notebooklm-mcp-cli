@@ -463,8 +463,8 @@ def add_url_verb(
     profile: Optional[str] = typer.Option(None, "--profile", "-p", help="Profile to use"),
 ) -> None:
     """Add a URL source to notebook."""
-    # Explicitly pass None for unused source types to avoid typer.Option resolution issues
-    add_source(notebook, url=url_arg, text=None, drive=None, youtube=None, file=None, profile=profile)
+    # Explicitly wrap the single URL string in a list so it doesn't get unpacked as characters
+    add_source(notebook, url=[url_arg], text=None, drive=None, youtube=None, file=None, profile=profile)
 
 
 @add_app.command("text")
@@ -921,7 +921,7 @@ install_app = typer.Typer(help="Install resources (skills)")
 
 @install_app.command("skill")
 def install_skill_verb(
-    tool: str = typer.Argument(..., help="Tool to install skill for (claude-code, opencode, gemini-cli, antigravity, codex, other)"),
+    tool: str = typer.Argument(..., help="Tool to install skill for (claude-code, agents, opencode, antigravity, other)"),
     level: str = typer.Option("user", "--level", "-l", help="Install at user level (~/.config) or project level (./)"),
 ) -> None:
     """Install NotebookLM skill for an AI tool."""

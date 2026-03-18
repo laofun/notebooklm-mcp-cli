@@ -11,7 +11,7 @@ from rich.console import Console
 from notebooklm_tools import __version__
 from notebooklm_tools.core.auth import load_cached_tokens, AuthManager
 from notebooklm_tools.core.client import NotebookLMClient
-from notebooklm_tools.utils.config import get_config
+from notebooklm_tools.utils.config import get_config, get_storage_dir
 
 console = Console()
 
@@ -86,7 +86,7 @@ def extract_cookies_from_string(cookie_str: str) -> dict[str, str]:
 
 def _get_cache_path() -> Path:
     """Get path to version check cache file."""
-    cache_dir = Path.home() / ".notebooklm-mcp-cli"
+    cache_dir = get_storage_dir() / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir / "update_check.json"
 
@@ -98,7 +98,7 @@ def _get_cached_version_info() -> dict | None:
         return None
     
     try:
-        with open(cache_path) as f:
+        with open(cache_path, encoding="utf-8") as f:
             data = json.load(f)
         
         # Check if cache is still valid (24 hours = 86400 seconds)
@@ -114,7 +114,7 @@ def _save_version_cache(latest_version: str) -> None:
     """Save version info to cache."""
     cache_path = _get_cache_path()
     try:
-        with open(cache_path, "w") as f:
+        with open(cache_path, "w", encoding="utf-8") as f:
             json.dump({
                 "latest_version": latest_version,
                 "checked_at": time.time(),

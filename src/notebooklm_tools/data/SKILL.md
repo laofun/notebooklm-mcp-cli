@@ -1,5 +1,6 @@
 ---
 name: nlm-skill
+version: "0.4.9"
 description: "Expert guide for the NotebookLM CLI (`nlm`) and MCP server - interfaces for Google NotebookLM. Use this skill when users want to interact with NotebookLM programmatically, including: creating/managing notebooks, adding sources (URLs, YouTube, text, Google Drive), generating content (podcasts, reports, quizzes, flashcards, mind maps, slides, infographics, videos, data tables), conducting research, chatting with sources, or automating NotebookLM workflows. Triggers on mentions of \"nlm\", \"notebooklm\", \"notebook lm\", \"podcast generation\", \"audio overview\", or any NotebookLM-related automation task."
 ---
 
@@ -529,6 +530,97 @@ Most list commands support multiple formats:
 | `--url` | "ID: URL" format (sources only) |
 | `--full` | All columns/details |
 
+### 12. Batch Operations
+
+Perform the same action across multiple notebooks at once.
+
+#### MCP Tools
+
+Use `batch` with `action` parameter. Select notebooks by `notebook_names`, `tags`, or `all=True`.
+
+```python
+batch(action="query", query="What are the key findings?", notebook_names="AI Research, Dev Tools")
+batch(action="add_source", source_url="https://example.com", tags="ai,research")
+batch(action="create", titles="Project A, Project B, Project C")
+batch(action="delete", notebook_names="Old Project", confirm=True)
+batch(action="studio", artifact_type="audio", tags="research", confirm=True)
+```
+
+#### CLI Commands
+```bash
+nlm batch query "What are the key takeaways?" --notebooks "id1,id2"
+nlm batch query "Summarize" --tags "ai,research"      # Query by tag
+nlm batch query "Summarize" --all                      # Query ALL notebooks
+nlm batch add-source --url "https://..." --notebooks "id1,id2"
+nlm batch create "Project A, Project B, Project C"     # Create multiple
+nlm batch delete --notebooks "id1,id2" --confirm       # Delete multiple
+nlm batch studio --type audio --tags "research" --confirm  # Generate across notebooks
+```
+
+### 13. Cross-Notebook Query
+
+Query multiple notebooks and get **aggregated answers with per-notebook citations**.
+
+#### MCP Tools
+
+```python
+cross_notebook_query(query="Compare approaches", notebook_names="Notebook A, Notebook B")
+cross_notebook_query(query="Summarize", tags="ai,research")
+cross_notebook_query(query="Everything", all=True)
+```
+
+#### CLI Commands
+```bash
+nlm cross query "What features are discussed?" --notebooks "id1,id2"
+nlm cross query "Compare approaches" --tags "ai,research"
+nlm cross query "Summarize everything" --all
+```
+
+### 14. Pipelines
+
+Define and execute multi-step notebook workflows. Three built-in pipelines plus support for custom YAML pipelines.
+
+#### MCP Tools
+
+```python
+pipeline(action="list")  # List available pipelines
+pipeline(action="run", notebook_id="...", pipeline_name="ingest-and-podcast", input_url="https://...")
+```
+
+#### CLI Commands
+```bash
+nlm pipeline list                                         # List available pipelines
+nlm pipeline run <notebook> ingest-and-podcast --url "https://..."
+nlm pipeline run <notebook> research-and-report --url "https://..."
+nlm pipeline run <notebook> multi-format                  # Audio + report + flashcards
+```
+
+**Built-in pipelines:** `ingest-and-podcast`, `research-and-report`, `multi-format`
+
+Create custom pipelines: add YAML files to `~/.notebooklm-mcp-cli/pipelines/`
+
+### 15. Tags & Smart Select
+
+Tag notebooks for organization and use tags to target batch operations.
+
+#### MCP Tools
+
+```python
+tag(action="add", notebook_id="...", tags="ai,research,llm")
+tag(action="remove", notebook_id="...", tags="ai")
+tag(action="list")                           # List all tagged notebooks
+tag(action="select", query="ai research")    # Find notebooks by tag match
+```
+
+#### CLI Commands
+```bash
+nlm tag add <notebook> --tags "ai,research,llm"           # Add tags
+nlm tag add <notebook> --tags "ai" --title "My Notebook"  # With display title
+nlm tag remove <notebook> --tags "ai"                     # Remove tags
+nlm tag list                                              # List all tagged notebooks
+nlm tag select "ai research"                              # Find notebooks by tag match
+```
+
 ## Common Patterns
 
 ### Pattern 1: Research → Podcast Pipeline
@@ -567,6 +659,23 @@ nlm source add <id> --drive 1KQH3eW0hMBp7WK... --type slides
 # ... time passes, document is edited ...
 nlm source stale <id>                    # Check freshness
 nlm source sync <id> --confirm           # Sync if stale
+```
+
+### Pattern 5: Batch & Cross-Notebook Workflow
+
+```bash
+# Tag notebooks for organization
+nlm tag add <id1> --tags "ai,research"
+nlm tag add <id2> --tags "ai,product"
+
+# Query across tagged notebooks
+nlm cross query "What are the main conclusions?" --tags "ai"
+
+# Batch generate podcasts for all tagged notebooks
+nlm batch studio --type audio --tags "ai" --confirm
+
+# Run a pipeline on a single notebook
+nlm pipeline run <id> ingest-and-podcast --url "https://example.com"
 ```
 
 ## Error Recovery

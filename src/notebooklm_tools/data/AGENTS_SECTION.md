@@ -1,4 +1,5 @@
 <!-- nlm-skill-start -->
+<!-- nlm-version: 0.4.9 -->
 ## NLM - NotebookLM CLI Expert
 
 **Triggers:** "nlm", "notebooklm", "notebook lm", "podcast", "audio overview", "research"
@@ -52,6 +53,14 @@ nlm quiz create <id> --count 10 --focus "Key Concepts" --confirm
 nlm flashcards create <id> --focus "Vocabulary" --confirm
 ```
 
+**Multi-Notebook Operations:**
+```bash
+nlm tag add <id> --tags "ai,research"                     # Tag notebooks
+nlm batch query "Summarize" --tags "ai"                   # Batch query by tag
+nlm cross query "Compare approaches" --notebooks "id1,id2"  # Cross-notebook query
+nlm pipeline run <id> ingest-and-podcast --url "https://..."  # Run pipeline
+```
+
 ### Full Documentation
 
 For complete command reference, troubleshooting, and workflows, install the full skill:
@@ -61,7 +70,7 @@ For complete command reference, troubleshooting, and workflows, install the full
 uv tool install notebooklm-mcp-cli
 
 # Then install/update skill for your AI tool
-nlm skill install <tool>  # Install (claude-code, opencode, gemini-cli, etc)
+nlm skill install <tool>  # Install (claude-code, agents, opencode, etc)
 nlm skill update <tool>   # Update existing skill
 ```
 

@@ -106,7 +106,7 @@ def load_cached_tokens() -> AuthTokens | None:
         return None
 
     try:
-        with open(cache_path) as f:
+        with open(cache_path, encoding="utf-8") as f:
             data = json.load(f)
         tokens = AuthTokens.from_dict(data)
 
@@ -129,7 +129,7 @@ def save_tokens_to_cache(tokens: AuthTokens, silent: bool = False) -> None:
         silent: If True, don't print confirmation message (for auto-updates)
     """
     cache_path = get_cache_path()
-    with open(cache_path, "w") as f:
+    with open(cache_path, "w", encoding="utf-8") as f:
         json.dump(tokens.to_dict(), f, indent=2)
     if not silent:
         logger.info(f"Auth tokens cached to {cache_path}")
@@ -341,10 +341,10 @@ class AuthManager:
             raise ProfileNotFoundError(self.profile_name)
         
         try:
-            cookies = json.loads(self.cookies_file.read_text())
+            cookies = json.loads(self.cookies_file.read_text(encoding="utf-8"))
             metadata = {}
             if self.metadata_file.exists():
-                metadata = json.loads(self.metadata_file.read_text())
+                metadata = json.loads(self.metadata_file.read_text(encoding="utf-8"))
             
             self._profile = Profile(
                 name=self.profile_name,
@@ -384,7 +384,7 @@ class AuthManager:
         # Guard: check for account mismatch before overwriting
         if not force and email and self.metadata_file.exists():
             try:
-                existing_metadata = json.loads(self.metadata_file.read_text())
+                existing_metadata = json.loads(self.metadata_file.read_text(encoding="utf-8"))
                 stored_email = existing_metadata.get("email")
                 if stored_email and stored_email != email:
                     raise AccountMismatchError(
@@ -401,7 +401,7 @@ class AuthManager:
         self.profile_dir.chmod(0o700)
         
         # Save cookies
-        self.cookies_file.write_text(json.dumps(cookies, indent=2))
+        self.cookies_file.write_text(json.dumps(cookies, indent=2), encoding="utf-8")
         self.cookies_file.chmod(0o600)
         
         # Save metadata
@@ -412,7 +412,7 @@ class AuthManager:
             "build_label": build_label,
             "last_validated": datetime.now().isoformat(),
         }
-        self.metadata_file.write_text(json.dumps(metadata, indent=2))
+        self.metadata_file.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
         self.metadata_file.chmod(0o600)
         
         self._profile = Profile(

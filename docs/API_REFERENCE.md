@@ -93,6 +93,29 @@ for source in sources:
 
 **Supported source types:** google_docs, google_slides_sheets, pdf, pasted_text, web_page, youtube
 
+### Batch, Cross-Notebook, Pipelines & Tags
+```python
+# Tag notebooks for organization
+tag(action="add", notebook_id="...", tags="ai,research")
+
+# Batch query across tagged notebooks
+batch(action="query", query="What are the key findings?", tags="ai")
+
+# Cross-notebook query with aggregated answers
+cross_notebook_query(query="Compare approaches", notebook_names="Project A, Project B")
+
+# Batch generate podcasts for all tagged notebooks
+batch(action="studio", artifact_type="audio", tags="research", confirm=True)
+
+# Run a multi-step pipeline
+pipeline(action="run", notebook_id="...", pipeline_name="ingest-and-podcast", input_url="https://...")
+
+# Find relevant notebooks by tag match
+tag(action="select", query="ai research")
+```
+
+**Built-in pipelines:** `ingest-and-podcast`, `research-and-report`, `multi-format`
+
 ### Sync Stale Drive Sources
 ```python
 # Check which sources need syncing

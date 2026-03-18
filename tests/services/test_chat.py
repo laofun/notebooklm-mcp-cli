@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import MagicMock
 
-from notebooklm_tools.services.chat import query, configure_chat
+from notebooklm_tools.services.chat import query, configure_chat, delete_chat_history
 from notebooklm_tools.services.errors import ValidationError, ServiceError
 
 
@@ -138,3 +138,30 @@ class TestConfigureChat:
         mock_client.configure_chat.side_effect = RuntimeError("fail")
         with pytest.raises(ServiceError, match="Failed to configure"):
             configure_chat(mock_client, "nb-123")
+
+
+class TestDeleteChatHistory:
+    """Test delete_chat_history service function."""
+
+    def test_successful_deletion(self, mock_client):
+        mock_client.get_conversation_id.return_value = "conv-123"
+        mock_client.delete_chat_history.return_value = True
+
+        result = delete_chat_history(mock_client, "nb-123")
+
+        assert result["notebook_id"] == "nb-123"
+        assert "deleted" in result["message"].lower()
+        mock_client.delete_chat_history.assert_called_once_with("nb-123", "conv-123")
+
+    def test_no_history_raises_service_error(self, mock_client):
+        mock_client.get_conversation_id.return_value = None
+
+        with pytest.raises(ServiceError, match="No chat history"):
+            delete_chat_history(mock_client, "nb-123")
+
+    def test_api_failure_raises_service_error(self, mock_client):
+        mock_client.get_conversation_id.return_value = "conv-123"
+        mock_client.delete_chat_history.side_effect = RuntimeError("server error")
+
+        with pytest.raises(ServiceError, match="Failed to delete"):
+            delete_chat_history(mock_client, "nb-123")

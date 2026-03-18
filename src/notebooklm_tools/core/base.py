@@ -78,6 +78,7 @@ class BaseClient:
     
     # Misc
     RPC_GET_CONVERSATIONS = "hPTbtc"
+    RPC_DELETE_CHAT_HISTORY = "J7Gthc"
     RPC_PREFERENCES = "hT54vc"
     RPC_SUBSCRIPTION = "ozz5Z"
     RPC_SETTINGS = "ZwVcOc"
@@ -645,11 +646,11 @@ class BaseClient:
             csrf_match = re.search(r'"SNlM0e":"([^"]+)"', html)
             if not csrf_match:
                 # Save HTML for debugging
-                from pathlib import Path
-                debug_dir = Path.home() / ".notebooklm-mcp-cli"
-                debug_dir.mkdir(exist_ok=True)
+                from notebooklm_tools.utils.config import get_storage_dir
+                debug_dir = get_storage_dir()
+                debug_dir.mkdir(parents=True, exist_ok=True)
                 debug_path = debug_dir / "debug_page.html"
-                debug_path.write_text(html)
+                debug_path.write_text(html, encoding="utf-8")
                 raise ValueError(
                     f"Could not extract CSRF token from page. "
                     f"Page saved to {debug_path} for debugging. "

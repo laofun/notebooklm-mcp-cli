@@ -16,6 +16,12 @@
 
 📺 **Watch the Demos**
 
+### Latest
+
+| **Codex Setup + Cinematic Video & Slides** |
+|:---:|
+| [![Latest](https://img.youtube.com/vi/KrgLCrvU1dw/mqdefault.jpg)](https://www.youtube.com/watch?v=KrgLCrvU1dw) |
+
 ### MCP Demos
 
 | **General Overview** | **Claude Desktop** | **Perplexity Desktop** | **MCP Super Assistant** |
@@ -24,9 +30,9 @@
 
 ### CLI Demos
 
-| **CLI Overview** | **CLI, MCP & Skills** | **Setup, Doctor & mcpb** | **Latest: Infographics Support** |
+| **CLI Overview** | **CLI, MCP & Skills** | **Setup, Doctor & mcpb** | **Infographics Support** |
 |:---:|:---:|:---:|:---:|
-| [![CLI Overview](https://img.youtube.com/vi/XyXVuALWZkE/mqdefault.jpg)](https://www.youtube.com/watch?v=XyXVuALWZkE) | [![CLI, MCP & Skills](https://img.youtube.com/vi/ZQBQigFK-E8/mqdefault.jpg)](https://www.youtube.com/watch?v=ZQBQigFK-E8) | [![Setup, Doctor & mcpb](https://img.youtube.com/vi/5tOUilBTJ3Q/mqdefault.jpg)](https://www.youtube.com/watch?v=5tOUilBTJ3Q) | [![Latest: Infographics](https://img.youtube.com/vi/Uc6iH5NuQ9A/mqdefault.jpg)](https://www.youtube.com/watch?v=Uc6iH5NuQ9A) |
+| [![CLI Overview](https://img.youtube.com/vi/XyXVuALWZkE/mqdefault.jpg)](https://www.youtube.com/watch?v=XyXVuALWZkE) | [![CLI, MCP & Skills](https://img.youtube.com/vi/ZQBQigFK-E8/mqdefault.jpg)](https://www.youtube.com/watch?v=ZQBQigFK-E8) | [![Setup, Doctor & mcpb](https://img.youtube.com/vi/5tOUilBTJ3Q/mqdefault.jpg)](https://www.youtube.com/watch?v=5tOUilBTJ3Q) | [![Infographics](https://img.youtube.com/vi/Uc6iH5NuQ9A/mqdefault.jpg)](https://www.youtube.com/watch?v=Uc6iH5NuQ9A) |
 
 
 ## Two Ways to Use
@@ -71,20 +77,24 @@ Then use natural language: *"Create a notebook about quantum computing and gener
 | List notebooks | `nlm notebook list` | `notebook_list` |
 | Create notebook | `nlm notebook create` | `notebook_create` |
 | Add Sources (URL, Text, Drive, File) | `nlm source add` | `source_add` |
-| Query notebook (AI chat) | `nlm notebook query` | `notebook_query` |
+| Query notebook (persists to web UI) | `nlm notebook query` | `notebook_query` |
 | Create Studio Content (Audio, Video, etc.) | `nlm studio create` | `studio_create` |
 | Revise slide decks | `nlm slides revise` | `studio_revise` |
 | Download artifacts | `nlm download <type>` | `download_artifact` |
 | Web/Drive research | `nlm research start` | `research_start` |
 | Share notebook | `nlm share public/invite` | `notebook_share_*` |
 | Sync Drive sources | `nlm source sync` | `source_sync_drive` |
+| Batch operations | `nlm batch query/create/delete` | `batch` |
+| Cross-notebook query | `nlm cross query` | `cross_notebook_query` |
+| Pipelines (multi-step workflows) | `nlm pipeline run/list` | `pipeline` |
+| Tag & smart select | `nlm tag add/list/select` | `tag` |
 | Configure AI tools | `nlm setup add/remove/list` | — |
 | Install AI Skills | `nlm skill install/update` | — |
 | Diagnose issues | `nlm doctor` | — |
 
 📚 **More Documentation:**
 - **[CLI Guide](docs/CLI_GUIDE.md)** — Complete command reference
-- **[MCP Guide](docs/MCP_GUIDE.md)** — All 30 MCP tools with examples
+- **[MCP Guide](docs/MCP_GUIDE.md)** — All 35 MCP tools with examples
 - **[Authentication](docs/AUTHENTICATION.md)** — Setup and troubleshooting
 - **[API Reference](docs/API_REFERENCE.md)** — Internal API docs for contributors
 
@@ -296,7 +306,7 @@ For detailed instructions and troubleshooting, see **[docs/AUTHENTICATION.md](do
 
 ## MCP Configuration
 
-> **⚠️ Context Window Warning:** This MCP provides **29 tools**. Disable it when not using NotebookLM to preserve context. In Claude Code: `@notebooklm-mcp` to toggle.
+> **⚠️ Context Window Warning:** This MCP provides **35 tools**. Disable it when not using NotebookLM to preserve context. In Claude Code: `@notebooklm-mcp` to toggle.
 
 ### Automatic Setup (Recommended)
 
@@ -439,6 +449,8 @@ Simply chat with your AI tool (Claude Code, Cursor, Gemini CLI) using natural la
 - "Get an AI summary of what this notebook is about"
 - "Configure the chat to use a learning guide style with longer responses"
 
+*(All queries sent from CLI or MCP automatically persist in your NotebookLM web UI chat history!)*
+
 ### Content Generation
 
 - "Create an audio podcast overview of this notebook in deep dive format"
@@ -537,6 +549,7 @@ Special thanks to:
 - **VooDisss** ([@VooDisss](https://github.com/VooDisss)) for multi-browser authentication improvements.
 - **codepiano** ([@codepiano](https://github.com/codepiano)) for the configurable DevTools timeout for the auth CLI.
 - **Tony Hansmann** ([@997unix](https://github.com/997unix)) for contributing the `nlm setup` and `nlm doctor` commands and CLI Guide documentation.
+- **Fabiana Furtado** ([@fabianafurtadoff](https://github.com/fabianafurtadoff)) for batch operations, cross-notebook query, pipelines, and smart select/tagging (PR #90).
 
 
 ## Star History

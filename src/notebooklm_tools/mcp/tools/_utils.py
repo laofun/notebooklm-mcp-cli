@@ -37,6 +37,25 @@ def get_client() -> NotebookLMClient:
     Tries environment variables first, falls back to cached tokens from auth CLI.
     """
     global _client
+    
+    # Check if we need to reload due to profile switch
+    cookie_header = os.environ.get("NOTEBOOKLM_COOKIES", "")
+    if not cookie_header and _client is not None:
+        try:
+            from notebooklm_tools.utils.config import reset_config
+            
+            # Reset config so we read the latest default_profile from disk
+            # in case `nlm login switch` was run in another terminal
+            reset_config()
+            cached = load_cached_tokens()
+            
+            # If tokens changed on disk (e.g., profile switch), force re-init
+            if cached and getattr(_client, "cookies", None) != cached.cookies:
+                mcp_logger.info("Authentication profile change detected, reloading client.")
+                reset_client()
+        except Exception as e:
+            mcp_logger.debug(f"Failed to check auth status: {e}")
+
     if _client is not None:
         return _client
     with _client_lock:
