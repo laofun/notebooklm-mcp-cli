@@ -5,9 +5,9 @@ import shutil
 from pathlib import Path
 
 import typer
-from rich.console import Console
+from notebooklm_tools.cli.utils import make_console
 
-console = Console()
+console = make_console()
 app = typer.Typer(
     name="doctor",
     help="Diagnose NotebookLM MCP installation and configuration",

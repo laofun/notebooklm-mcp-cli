@@ -58,8 +58,6 @@ class ResearchMixin(BaseClient):
         # Map to internal constants
         source_type = self.RESEARCH_SOURCE_WEB if source_lower == "web" else self.RESEARCH_SOURCE_DRIVE
 
-        client = self._get_client()
-
         if mode_lower == "fast":
             # Fast Research: Ljjv0c
             params = [[query, source_type], None, 1, notebook_id]
@@ -69,14 +67,7 @@ class ResearchMixin(BaseClient):
             params = [None, [1], [query, source_type], 5, notebook_id]
             rpc_id = self.RPC_START_DEEP_RESEARCH
 
-        body = self._build_request_body(rpc_id, params)
-        url = self._build_url(rpc_id, f"/notebook/{notebook_id}")
-
-        response = client.post(url, content=body)
-        response.raise_for_status()
-
-        parsed = self._parse_response(response.text)
-        result = self._extract_rpc_result(parsed, rpc_id)
+        result = self._call_rpc(rpc_id, params, path=f"/notebook/{notebook_id}")
 
         if result and isinstance(result, list) and len(result) > 0:
             task_id = result[0]
@@ -211,7 +202,13 @@ class ResearchMixin(BaseClient):
             # If there's exactly one task, it's safe to return it. (Issue #69)
             if len(research_tasks) == 1:
                 return research_tasks[0]
-            return None
+            # Multi-task notebooks: deep research may mutate task_id internally,
+            # so ID returned by start_research() won't match the polled ID.
+            # Best-effort: prefer any in-progress task, then most recent. (Issue #106)
+            for task in research_tasks:
+                if task.get("status") == "in_progress":
+                    return task
+            return research_tasks[0]
 
         # If only target_query provided (no task_id), match by query
         if target_query:

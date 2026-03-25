@@ -539,8 +539,56 @@ class TestMCPServerImports:
         assert callable(refresh_auth)
         assert callable(save_auth_tokens)
 
-    def test_client_imports(self):
-        """Client modules should import without errors."""
-        from notebooklm_tools.core.client import NotebookLMClient
 
-        assert NotebookLMClient is not None
+
+
+class TestPageFetchHeaders:
+    """Regression tests for issue #105 — platform-neutral page fetch headers.
+
+    The _PAGE_FETCH_HEADERS must NOT contain OS-specific Client Hints so that
+    manually imported cookies (e.g. from a Windows Chrome session) are not
+    rejected by Google's servers due to a platform fingerprint mismatch.
+
+    See: https://github.com/jacob-bd/notebooklm-mcp-cli/issues/105
+    """
+
+    def _get_headers(self):
+        from notebooklm_tools.core.base import BaseClient
+        return BaseClient._PAGE_FETCH_HEADERS
+
+    def test_no_sec_ch_ua_platform(self):
+        """sec-ch-ua-platform must be absent — it embeds OS fingerprints."""
+        headers = self._get_headers()
+        assert "sec-ch-ua-platform" not in headers, (
+            "sec-ch-ua-platform is present — it would cause Google to reject "
+            "cookies captured on a different OS (e.g. Windows). Remove it."
+        )
+
+    def test_no_sec_ch_ua_mobile(self):
+        """sec-ch-ua-mobile must be absent (Client Hint, optional)."""
+        headers = self._get_headers()
+        assert "sec-ch-ua-mobile" not in headers, (
+            "sec-ch-ua-mobile is a Client Hint fingerprinting header. Remove it."
+        )
+
+    def test_no_sec_ch_ua(self):
+        """sec-ch-ua must be absent (Client Hint, optional)."""
+        headers = self._get_headers()
+        assert "sec-ch-ua" not in headers, (
+            "sec-ch-ua is a Client Hint fingerprinting header. Remove it."
+        )
+
+    def test_user_agent_not_macos(self):
+        """User-Agent must not claim macOS — that would fingerprint Windows users."""
+        ua = self._get_headers().get("User-Agent", "")
+        assert "Macintosh" not in ua, (
+            f"User-Agent contains 'Macintosh' ({ua!r}). Use a platform-neutral UA."
+        )
+        assert "Mac OS X" not in ua, (
+            f"User-Agent contains 'Mac OS X' ({ua!r}). Use a platform-neutral UA."
+        )
+
+    def test_user_agent_is_present(self):
+        """User-Agent header must still be present."""
+        assert "User-Agent" in self._get_headers()
+

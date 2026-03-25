@@ -22,6 +22,7 @@ from . import constants
 from .retry import is_retryable_error, DEFAULT_MAX_RETRIES, DEFAULT_BASE_DELAY, DEFAULT_MAX_DELAY
 from .data_types import ConversationTurn
 from .errors import ClientAuthenticationError as AuthenticationError
+from .errors import RPCError
 from .utils import (
     RPC_NAMES,
     _format_debug_json,
@@ -222,18 +223,19 @@ class BaseClient:
     # Query endpoint (different from batchexecute - streaming gRPC-style)
     QUERY_ENDPOINT = "/_/LabsTailwindUi/data/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed"
 
-    # Headers required for page fetch (must look like a browser navigation)
+    # Headers required for page fetch (must look like a browser navigation).
+    # We use a generic Linux Chrome UA and omit sec-ch-ua* Client Hints intentionally:
+    # those headers embed OS/platform fingerprints (e.g. "macOS") that can cause Google
+    # to reject requests when the session cookies were captured on a different OS (e.g.
+    # Windows). Client Hints are optional — omitting them is safe and platform-neutral.
     _PAGE_FETCH_HEADERS = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
         "Sec-Fetch-Dest": "document",
         "Sec-Fetch-Mode": "navigate",
         "Sec-Fetch-Site": "none",
         "Sec-Fetch-User": "?1",
-        "sec-ch-ua": '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": '"macOS"',
     }
 
     # =========================================================================
@@ -457,16 +459,42 @@ class BaseClient:
         return results
 
     def _extract_rpc_result(self, parsed_response: list, rpc_id: str) -> Any:
-        """Extract the result for a specific RPC ID from the parsed response."""
+        """Extract the result for a specific RPC ID from the parsed response.
+
+        Checks for structured error payloads in item[5]. Known error layout:
+            ["wrb.fr", rpc_id, result_or_null, ..., error_list, "generic"]
+        where error_list = [error_code, null, [[detail_type_url, [sub_codes...]]]]
+        """
         for chunk in parsed_response:
             if isinstance(chunk, list):
                 for item in chunk:
                     if isinstance(item, list) and len(item) >= 3:
                         if item[0] == "wrb.fr" and item[1] == rpc_id:
-                            # Check for generic error signature (e.g. auth expired)
-                            # Signature: ["wrb.fr", "RPC_ID", null, null, null, [16], "generic"]
-                            if len(item) > 6 and item[6] == "generic" and isinstance(item[5], list) and 16 in item[5]:
-                                raise AuthenticationError("RPC Error 16: Authentication expired")
+                            # Check for structured error in item[5]
+                            if len(item) > 5 and isinstance(item[5], list) and item[5]:
+                                error_code = item[5][0] if isinstance(item[5][0], int) else None
+
+                                if error_code is not None:
+                                    # Auth error (code 16) — existing behavior
+                                    if error_code == 16:
+                                        raise AuthenticationError("RPC Error 16: Authentication expired")
+
+                                    # All other error codes — extract detail type
+                                    detail_type = ""
+                                    detail_data = None
+                                    if len(item[5]) > 2 and isinstance(item[5][2], list):
+                                        for detail in item[5][2]:
+                                            if isinstance(detail, list) and len(detail) > 0:
+                                                detail_type = detail[0] if isinstance(detail[0], str) else ""
+                                                detail_data = detail[1] if len(detail) > 1 else None
+                                                break
+
+                                    raise RPCError(
+                                        f"API error (code {error_code}): {detail_type or 'unknown'}",
+                                        error_code=error_code,
+                                        detail_type=detail_type,
+                                        detail_data=detail_data,
+                                    )
 
                             result_str = item[2]
                             if isinstance(result_str, str):
@@ -642,9 +670,11 @@ class BaseClient:
 
             html = response.text
 
-            # Extract CSRF token (SNlM0e)
-            csrf_match = re.search(r'"SNlM0e":"([^"]+)"', html)
-            if not csrf_match:
+            # Extract CSRF token — try multiple known key names in case Google changes
+            # the primary key (SNlM0e). Falls back to 'at=' and 'FdrFJe' patterns.
+            from .auth import extract_csrf_from_page_source
+            csrf_token = extract_csrf_from_page_source(html)
+            if not csrf_token:
                 # Save HTML for debugging
                 from notebooklm_tools.utils.config import get_storage_dir
                 debug_dir = get_storage_dir()
@@ -657,7 +687,7 @@ class BaseClient:
                     f"The page structure may have changed."
                 )
 
-            self.csrf_token = csrf_match.group(1)
+            self.csrf_token = csrf_token
 
             # Extract session ID (FdrFJe) - optional but helps
             sid_match = re.search(r'"FdrFJe":"([^"]+)"', html)

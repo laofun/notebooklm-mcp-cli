@@ -61,9 +61,12 @@ class TestNotebookLMClientFiltering:
             assert result3["task_id"] == "task_uuid_3"
             assert result3["status"] == "in_progress" # Status 1 -> in_progress
             
-            # 4. Test unknown task_id
+            # 4. Test unknown task_id — Issue #106 fix: should fallback to
+            # in-progress task instead of returning None
             result_unknown = mock_client.poll_research("nb_id", target_task_id="unknown_uuid")
-            assert result_unknown is None
+            assert result_unknown is not None
+            assert result_unknown["task_id"] == "task_uuid_3"  # in-progress task preferred
+            assert result_unknown["status"] == "in_progress"
             
             # 5. Test default behavior (no task_id) - returns first valid task (task3 in our mock list)
             # Logic: "Return the most recent (first) task"

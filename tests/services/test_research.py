@@ -9,6 +9,7 @@ from notebooklm_tools.services.research import (
     import_research,
 )
 from notebooklm_tools.services.errors import ValidationError, ServiceError
+from notebooklm_tools.core.errors import RPCError
 
 
 @pytest.fixture
@@ -57,6 +58,48 @@ class TestStartResearch:
         mock_client.start_research.side_effect = RuntimeError("fail")
         with pytest.raises(ServiceError, match="Failed to start research"):
             start_research(mock_client, "nb-1", "query")
+
+    def test_rpc_error_provides_user_friendly_message(self, mock_client):
+        """Issue #98: transient DeepResearchErrorDetail should give actionable message."""
+        mock_client.start_research.side_effect = RPCError(
+            "API error (code 3): DeepResearchErrorDetail",
+            error_code=3,
+            detail_type="type.googleapis.com/google.internal.labs.tailwind.orchestration.v1.DeepResearchErrorDetail",
+            detail_data=[4],
+        )
+        with pytest.raises(ServiceError) as exc_info:
+            start_research(mock_client, "nb-1", "quantum computing", mode="deep")
+
+        assert "error code 3" in exc_info.value.user_message
+        assert "DeepResearchErrorDetail" in exc_info.value.user_message
+        assert "transient" in exc_info.value.user_message.lower()
+        assert "--mode fast" in exc_info.value.user_message
+
+    def test_rpc_error_extracts_short_detail_name(self, mock_client):
+        """The service should show only the short detail name, not full type URL."""
+        mock_client.start_research.side_effect = RPCError(
+            "test",
+            error_code=7,
+            detail_type="type.googleapis.com/some.long.package.SpecificErrorDetail",
+        )
+        with pytest.raises(ServiceError) as exc_info:
+            start_research(mock_client, "nb-1", "query")
+
+        # Should use short name only
+        assert "SpecificErrorDetail" in exc_info.value.user_message
+        assert "type.googleapis.com" not in exc_info.value.user_message
+
+    def test_rpc_error_not_swallowed_as_generic(self, mock_client):
+        """RPCError must NOT be caught by the generic Exception handler."""
+        mock_client.start_research.side_effect = RPCError(
+            "API error (code 3)",
+            error_code=3,
+        )
+        with pytest.raises(ServiceError) as exc_info:
+            start_research(mock_client, "nb-1", "query")
+
+        # Should mention method-specific error code, not generic "Failed to start research"
+        assert "error code 3" in str(exc_info.value)
 
     def test_drive_fast_works(self, mock_client):
         mock_client.start_research.return_value = {"task_id": "t-1"}

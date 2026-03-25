@@ -190,3 +190,28 @@ class TestDownloadAsync:
             "nb-1", "/tmp/a.m4a", None,
             progress_callback=cb,
         )
+
+    @pytest.mark.asyncio
+    async def test_download_report_via_async(self, mock_client):
+        """Issue #107: report must be downloadable via download_async."""
+        result = await download_async(mock_client, "nb-1", "report", "/tmp/r.md")
+        assert result["artifact_type"] == "report"
+        assert result["path"] == "/tmp/report.md"
+        mock_client.download_report.assert_called_once_with("nb-1", "/tmp/r.md", None)
+
+    @pytest.mark.asyncio
+    async def test_download_mind_map_via_async(self, mock_client):
+        """Issue #107: mind_map must be downloadable via download_async."""
+        result = await download_async(mock_client, "nb-1", "mind_map", "/tmp/mm.json")
+        assert result["artifact_type"] == "mind_map"
+        assert result["path"] == "/tmp/mindmap.json"
+        mock_client.download_mind_map.assert_called_once_with("nb-1", "/tmp/mm.json", None)
+
+    @pytest.mark.asyncio
+    async def test_download_data_table_via_async(self, mock_client):
+        """Issue #107: data_table must be downloadable via download_async."""
+        result = await download_async(mock_client, "nb-1", "data_table", "/tmp/dt.csv")
+        assert result["artifact_type"] == "data_table"
+        assert result["path"] == "/tmp/table.csv"
+        mock_client.download_data_table.assert_called_once_with("nb-1", "/tmp/dt.csv", None)
+

@@ -8,12 +8,15 @@ For CLI-specific exceptions (with hint messages), see exceptions.py.
 """
 
 
-class NotebookLMError(Exception):
+from .exceptions import NLMError
+
+class NotebookLMError(NLMError):
     """Base exception for NotebookLM errors.
     
     All artifact-related and client-level errors inherit from this class.
     """
-    pass
+    def __init__(self, message: str, hint: str | None = None):
+        super().__init__(message=message, hint=hint)
 
 
 class ArtifactError(NotebookLMError):
@@ -94,3 +97,26 @@ class ClientAuthenticationError(Exception):
     a different implementation (CLI-focused with hints).
     """
     pass
+
+
+class RPCError(NotebookLMError):
+    """Raised when a batchexecute RPC returns a structured error payload.
+    
+    Google's batchexecute protocol can return errors inside HTTP 200 responses.
+    The error is encoded in item[5] of the response array, with structure:
+        [error_code, null, [[detail_type_url, [sub_codes...]]]]
+    
+    Known error codes:
+        3  — Transient/service error (e.g., DeepResearchErrorDetail)
+        16 — Authentication expired (handled separately as ClientAuthenticationError)
+    
+    Attributes:
+        error_code: The top-level error code from item[5][0]
+        detail_type: The protobuf type URL from item[5][2] (e.g., "...DeepResearchErrorDetail")
+        detail_data: Sub-error data from the detail payload (e.g., [4])
+    """
+    def __init__(self, message: str, error_code: int = 0, detail_type: str = "", detail_data=None):
+        super().__init__(message)
+        self.error_code = error_code
+        self.detail_type = detail_type
+        self.detail_data = detail_data

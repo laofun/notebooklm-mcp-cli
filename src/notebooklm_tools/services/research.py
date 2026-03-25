@@ -3,6 +3,7 @@
 from typing import TypedDict, Optional, Literal
 
 from ..core.client import NotebookLMClient
+from ..core.errors import RPCError
 from .errors import ValidationError, ServiceError
 
 VALID_SOURCES = ("web", "drive")
@@ -89,6 +90,16 @@ def start_research(
             query=query,
             source=source,
             mode=mode,
+        )
+    except RPCError as e:
+        # Structured API error (e.g., DeepResearchErrorDetail)
+        short_detail = e.detail_type.rsplit(".", 1)[-1] if e.detail_type else "unknown"
+        raise ServiceError(
+            f"Google API error code {e.error_code} ({short_detail})",
+            user_message=(
+                f"Failed to start research — Google API error code {e.error_code} ({short_detail}).\n"
+                f"This is likely a transient issue. Try again in a few minutes, or use --mode fast."
+            ),
         )
     except Exception as e:
         raise ServiceError(f"Failed to start research: {e}")

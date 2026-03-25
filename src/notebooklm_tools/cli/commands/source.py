@@ -8,7 +8,7 @@ from rich.console import Console
 from notebooklm_tools.core.alias import get_alias_manager
 from notebooklm_tools.core.exceptions import NLMError
 from notebooklm_tools.cli.formatters import detect_output_format, get_formatter
-from notebooklm_tools.cli.utils import get_client
+from notebooklm_tools.cli.utils import get_client, handle_error
 from notebooklm_tools.services import sources as sources_service, ServiceError
 
 console = Console()
@@ -45,11 +45,8 @@ def list_sources(
         fmt = detect_output_format(json_output, quiet, url_flag=url)
         formatter = get_formatter(fmt, console)
         formatter.format_sources(sources, full=full or drive, url_only=url)
-    except NLMError as e:
-        console.print(f"[red]Error:[/red] {e.message}")
-        if e.hint:
-            console.print(f"\n[dim]Hint: {e.hint}[/dim]")
-        raise typer.Exit(1)
+    except (ServiceError, NLMError) as e:
+        handle_error(e, json_output=locals().get('json_output', False))
 
 
 @app.command("add")
@@ -58,7 +55,7 @@ def add_source(
     url: Optional[list[str]] = typer.Option(None, "--url", "-u", help="URL to add (repeatable for bulk)"),
     text: Optional[str] = typer.Option(None, "--text", "-t", help="Text content to add"),
     drive: Optional[str] = typer.Option(None, "--drive", "-d", help="Google Drive document ID"),
-    youtube: Optional[str] = typer.Option(None, "--youtube", "-y", help="YouTube URL"),
+    youtube: Optional[list[str]] = typer.Option(None, "--youtube", "-y", help="YouTube URL (repeatable for bulk)"),
     file: Optional[str] = typer.Option(None, "--file", "-f", help="Local file to upload (PDF, etc.)"),
     title: str = typer.Option("", "--title", help="Title for the source"),
     doc_type: str = typer.Option("doc", "--type", help="Drive doc type: doc, slides, sheets, pdf"),
@@ -72,6 +69,7 @@ def add_source(
         nlm source add <notebook-id> --url https://a.com --url https://b.com
         nlm source add <notebook-id> --url https://example.com --wait
         nlm source add <notebook-id> --file document.pdf --wait
+        nlm source add <notebook-id> --youtube https://youtu.be/a --youtube https://youtu.be/b
     """
     notebook_id = get_alias_manager().resolve(notebook_id)
 
@@ -81,8 +79,14 @@ def add_source(
         urls = [urls]
     has_url = len(urls) > 0
 
+    # Normalize youtube list: typer gives None or a list
+    youtubes = youtube or []
+    if isinstance(youtubes, str):
+        youtubes = [youtubes]
+    has_youtube = len(youtubes) > 0
+
     # Validate that exactly one source type is provided (CLI-specific UX)
-    source_count = sum(1 for x in [has_url, text, drive, youtube, file] if x)
+    source_count = sum(1 for x in [has_url, text, drive, has_youtube, file] if x)
     if source_count == 0:
         console.print("[red]Error:[/red] Please specify a source: --url, --text, --file, --drive, or --youtube")
         raise typer.Exit(1)
@@ -92,15 +96,16 @@ def add_source(
 
     try:
         with get_client(profile) as client:
-            # Bulk URL add: multiple --url flags
-            if has_url and len(urls) > 1:
+            # Bulk URL add: multiple --url and/or --youtube flags (both are URLs to the API)
+            all_urls = urls + youtubes
+            if len(all_urls) > 1:
                 if wait:
-                    console.print(f"[blue]Adding {len(urls)} URLs and waiting for processing...[/blue]")
+                    console.print(f"[blue]Adding {len(all_urls)} URLs and waiting for processing...[/blue]")
                 else:
-                    console.print(f"[blue]Adding {len(urls)} URLs...[/blue]")
+                    console.print(f"[blue]Adding {len(all_urls)} URLs...[/blue]")
                 bulk_result = sources_service.add_sources(
                     client, notebook_id,
-                    [{"source_type": "url", "url": u} for u in urls],
+                    [{"source_type": "url", "url": u} for u in all_urls],
                     wait=wait,
                 )
                 ready_msg = " (ready)" if wait else ""
@@ -111,8 +116,8 @@ def add_source(
                 return
 
             # Single URL add (including youtube)
-            if youtube:
-                source_type, source_url = "url", youtube
+            if has_youtube:
+                source_type, source_url = "url", youtubes[0]
             elif has_url:
                 source_type, source_url = "url", urls[0]
             else:
@@ -158,14 +163,8 @@ def add_source(
         ready_msg = " (ready)" if wait else ""
         console.print(f"[green]✓[/green] Added source: {result['title']}{ready_msg}")
         console.print(f"[dim]Source ID: {result['source_id']}[/dim]")
-    except ServiceError as e:
-        console.print(f"[red]Error:[/red] {e.user_message}")
-        raise typer.Exit(1)
-    except NLMError as e:
-        console.print(f"[red]Error:[/red] {e.message}")
-        if e.hint:
-            console.print(f"\n[dim]Hint: {e.hint}[/dim]")
-        raise typer.Exit(1)
+    except (ServiceError, NLMError) as e:
+        handle_error(e, json_output=locals().get('json_output', False))
 
 
 @app.command("get")
@@ -183,11 +182,8 @@ def get_source(
         fmt = detect_output_format(json_output)
         formatter = get_formatter(fmt, console)
         formatter.format_item(source, title="Source Details")
-    except NLMError as e:
-        console.print(f"[red]Error:[/red] {e.message}")
-        if e.hint:
-            console.print(f"\n[dim]Hint: {e.hint}[/dim]")
-        raise typer.Exit(1)
+    except (ServiceError, NLMError) as e:
+        handle_error(e, json_output=locals().get('json_output', False))
 
 
 @app.command("describe")
@@ -205,11 +201,8 @@ def describe_source(
         fmt = detect_output_format(json_output)
         formatter = get_formatter(fmt, console)
         formatter.format_item(summary, title="Source Summary")
-    except NLMError as e:
-        console.print(f"[red]Error:[/red] {e.message}")
-        if e.hint:
-            console.print(f"\n[dim]Hint: {e.hint}[/dim]")
-        raise typer.Exit(1)
+    except (ServiceError, NLMError) as e:
+        handle_error(e, json_output=locals().get('json_output', False))
 
 
 @app.command("content")
@@ -233,11 +226,8 @@ def get_source_content(
             fmt = detect_output_format(json_output)
             formatter = get_formatter(fmt, console)
             formatter.format_item(content, title="Source Content")
-    except NLMError as e:
-        console.print(f"[red]Error:[/red] {e.message}")
-        if e.hint:
-            console.print(f"\n[dim]Hint: {e.hint}[/dim]")
-        raise typer.Exit(1)
+    except (ServiceError, NLMError) as e:
+        handle_error(e, json_output=locals().get('json_output', False))
 
 
 @app.command("rename")
@@ -256,14 +246,8 @@ def rename_source(
             result = sources_service.rename_source(client, notebook_id, source_id, title)
         console.print(f"[green]✓[/green] Renamed source to: {result['title']}")
         console.print(f"[dim]Source ID: {result['source_id']}[/dim]")
-    except ServiceError as e:
-        console.print(f"[red]Error:[/red] {e.user_message}")
-        raise typer.Exit(1)
-    except NLMError as e:
-        console.print(f"[red]Error:[/red] {e.message}")
-        if e.hint:
-            console.print(f"\n[dim]Hint: {e.hint}[/dim]")
-        raise typer.Exit(1)
+    except (ServiceError, NLMError) as e:
+        handle_error(e, json_output=locals().get('json_output', False))
 
 
 @app.command("delete")
@@ -302,14 +286,8 @@ def delete_source(
             else:
                 sources_service.delete_sources(client, resolved_ids)
                 console.print(f"[green]✓[/green] Deleted {len(resolved_ids)} sources")
-    except ServiceError as e:
-        console.print(f"[red]Error:[/red] {e.user_message}")
-        raise typer.Exit(1)
-    except NLMError as e:
-        console.print(f"[red]Error:[/red] {e.message}")
-        if e.hint:
-            console.print(f"\n[dim]Hint: {e.hint}[/dim]")
-        raise typer.Exit(1)
+    except (ServiceError, NLMError) as e:
+        handle_error(e, json_output=locals().get('json_output', False))
 
 
 @app.command("stale")
@@ -337,11 +315,8 @@ def list_stale_sources(
         formatter.format_sources(stale_sources, full=True)
 
         console.print("\n[dim]Run 'nlm source sync <notebook-id>' to sync all stale sources.[/dim]")
-    except NLMError as e:
-        console.print(f"[red]Error:[/red] {e.message}")
-        if e.hint:
-            console.print(f"\n[dim]Hint: {e.hint}[/dim]")
-        raise typer.Exit(1)
+    except (ServiceError, NLMError) as e:
+        handle_error(e, json_output=locals().get('json_output', False))
 
 
 @app.command("sync")
@@ -380,11 +355,5 @@ def sync_sources(
 
         synced = sum(1 for r in results if r.get("synced"))
         console.print(f"[green]✓[/green] Synced {synced} source(s)")
-    except ServiceError as e:
-        console.print(f"[red]Error:[/red] {e.user_message}")
-        raise typer.Exit(1)
-    except NLMError as e:
-        console.print(f"[red]Error:[/red] {e.message}")
-        if e.hint:
-            console.print(f"\n[dim]Hint: {e.hint}[/dim]")
-        raise typer.Exit(1)
+    except (ServiceError, NLMError) as e:
+        handle_error(e, json_output=locals().get('json_output', False))

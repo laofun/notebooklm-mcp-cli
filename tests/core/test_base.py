@@ -113,6 +113,59 @@ def test_extract_rpc_result():
         assert result == {"status": "ok"}
 
 
+def test_extract_rpc_result_raises_rpc_error_on_transient():
+    """Issue #98: structured API error in item[5] should raise RPCError."""
+    from notebooklm_tools.core.base import BaseClient
+    from notebooklm_tools.core.errors import RPCError
+
+    with patch.object(BaseClient, '_refresh_auth_tokens'):
+        client = BaseClient(cookies={}, csrf_token="token")
+
+        # Real failing deep response from Issue #98
+        parsed = [[[
+            "wrb.fr", "QA9ei", None, None, None,
+            [3, None, [["type.googleapis.com/google.internal.labs.tailwind.orchestration.v1.DeepResearchErrorDetail", [4]]]],
+            "generic"
+        ]]]
+
+        with pytest.raises(RPCError) as exc_info:
+            client._extract_rpc_result(parsed, "QA9ei")
+
+        assert exc_info.value.error_code == 3
+        assert "DeepResearchErrorDetail" in exc_info.value.detail_type
+        assert exc_info.value.detail_data == [4]
+
+
+def test_extract_rpc_result_auth_error_still_works():
+    """Auth errors (code 16) should still raise AuthenticationError, not RPCError."""
+    from notebooklm_tools.core.base import BaseClient
+    from notebooklm_tools.core.errors import ClientAuthenticationError
+
+    with patch.object(BaseClient, '_refresh_auth_tokens'):
+        client = BaseClient(cookies={}, csrf_token="token")
+
+        parsed = [[["wrb.fr", "testRpc", None, None, None, [16], "generic"]]]
+
+        with pytest.raises(ClientAuthenticationError):
+            client._extract_rpc_result(parsed, "testRpc")
+
+
+def test_extract_rpc_result_unknown_error_code():
+    """Unknown error codes should still raise RPCError with the code."""
+    from notebooklm_tools.core.base import BaseClient
+    from notebooklm_tools.core.errors import RPCError
+
+    with patch.object(BaseClient, '_refresh_auth_tokens'):
+        client = BaseClient(cookies={}, csrf_token="token")
+
+        parsed = [[["wrb.fr", "testRpc", None, None, None, [7], "generic"]]]
+
+        with pytest.raises(RPCError) as exc_info:
+            client._extract_rpc_result(parsed, "testRpc")
+
+        assert exc_info.value.error_code == 7
+
+
 def test_context_manager():
     """Test BaseClient as context manager."""
     from notebooklm_tools.core.base import BaseClient

@@ -220,7 +220,15 @@ async def _dispatch_async(
     slide_deck_format: str = "pdf",
 ) -> str:
     """Route to the correct async client method."""
-    if artifact_type == "audio":
+    # Non-streaming types (sync client methods callable from async context)
+    if artifact_type == "report":
+        return client.download_report(notebook_id, output_path, artifact_id)
+    elif artifact_type == "mind_map":
+        return client.download_mind_map(notebook_id, output_path, artifact_id)
+    elif artifact_type == "data_table":
+        return client.download_data_table(notebook_id, output_path, artifact_id)
+    # Streaming types (async client methods)
+    elif artifact_type == "audio":
         return await client.download_audio(
             notebook_id, output_path, artifact_id,
             progress_callback=progress_callback,

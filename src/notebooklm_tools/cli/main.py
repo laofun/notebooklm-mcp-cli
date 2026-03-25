@@ -4,7 +4,7 @@ import logging
 from typing import Optional
 
 import typer
-from rich.console import Console
+from notebooklm_tools.cli.utils import make_console
 
 from notebooklm_tools import __version__
 from notebooklm_tools.cli.commands.chat import app as chat_app
@@ -57,7 +57,7 @@ from notebooklm_tools.cli.commands.verbs import (
     update_app,
 )
 
-console = Console()
+console = make_console()
 
 # Main application
 app = typer.Typer(

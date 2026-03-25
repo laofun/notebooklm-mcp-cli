@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.6] - 2026-03-24
+
+### Fixed
+- **Windows: manual cookies rejected after import (Issue #105)** — `nlm login --manual --file` saved cookies correctly, but subsequent requests to `notebooklm.google.com` were rejected by Google (302 → login page) because the page-fetch headers included macOS-specific Client Hints (`sec-ch-ua-platform: "macOS"`, `sec-ch-ua`, `sec-ch-ua-mobile`). When cookies were captured from a Windows Chrome session, the OS fingerprint mismatch caused Google to reject the session. Removed all three `sec-ch-ua*` headers (they're optional per spec) and switched to a platform-neutral Linux Chrome UA — making auth platform-agnostic. Also added a multi-pattern CSRF token fallback (`SNlM0e` → `at=` → `FdrFJe`) in `_refresh_auth_tokens`, and a `make_console(safe_box=True)` factory to prevent `UnicodeEncodeError` crashes on Windows `cp1251`/`cp1252` codepage terminals. Thanks to **@pakulyaev** for the detailed diagnosis and debug output! (5 new regression tests added)
+- **Windows: IPv6 WebSocket connection error during `nlm login` (Issue #108)** — On Windows, Chrome's DevTools debugger binds to `127.0.0.1` (IPv4), but `websocket-client` resolves `localhost` to `::1` (IPv6), causing `PermissionError: [WinError 10013]`. Added a `_normalize_ws_url()` helper that explicitly rewrites `ws://localhost:` to `ws://127.0.0.1:` at all 4 WebSocket connection sites in `cdp.py`. Thanks to **@theteleporter** for the spot-on diagnosis!
+
+## [0.5.5] - 2026-03-23
+
+
+### Fixed
+- **MCP `download_artifact` failing for report/mind_map/data_table (Issue #107)** — The MCP `download_artifact` tool exclusively routed through `download_async()`, but `_dispatch_async()` had no handlers for `report`, `mind_map`, or `data_table` (only `_dispatch_sync()` did). Added these three non-streaming types to the async dispatcher so all artifact types are downloadable via the MCP tool. Thanks to **@Neophen** for the detailed bug report!
+- **`poll_research` returning `None` for deep research in multi-task notebooks (Issue #106)** — When deep research mutates the task ID internally and the notebook has multiple research tasks, `poll_research` returned `None` instead of a valid task. The fallback now prefers any `in_progress` task, then falls back to the most recent task. Thanks to **@Neophen** for reporting!
+
+## [0.5.4] - 2026-03-22
+
+### Fixed
+- **Verb-style `nlm delete source` TypeError (Issue #104)** — `nlm delete source <id> --confirm` was crashing with `TypeError: delete_source() got an unexpected keyword argument 'source_id'`. The verb-style CLI layer in `verbs.py` was passing `source_id=source` (singular string) but the underlying function expects `source_ids` (a list). Fixed the parameter name and wrapped the value in a list. The noun-style `nlm source delete` was unaffected. Thanks to **@Le-Yann** for the detailed bug report and root cause analysis!
+
+## [0.5.3] - 2026-03-22
+
+### Improved
+- **Actionable Error Hints Across CLI & MCP (Issue #103)** — All CLI commands and MCP tools now provide structured, user-friendly error messages with actionable hints (e.g., "Run 'nlm login' to authenticate" or "Run 'nlm notebook list' to see available notebooks"). Thanks to **@ahnbu** for suggesting this improvement!
+  - **CLI**: Consolidated error handling via centralized `handle_error()` across all 13 command modules. Errors with `--json` flag now output structured JSON (`{"status": "error", "error": "...", "hint": "..."}`).
+  - **MCP**: All 27 MCP tools now include `hint` fields in error responses for AI agent consumption.
+  - **Services**: `ServiceError` now carries an optional `hint` attribute, propagated from `NLMError` exceptions.
+  - **Core**: `NotebookLMError` (parent of `RPCError`, `ArtifactError`, etc.) now inherits from `NLMError`, ensuring all low-level API errors are caught and handled gracefully instead of producing raw tracebacks.
+
+### Fixed
+- **Non-ASCII characters in JSON output (PR #100)** — CLI JSON output (`--json` flag) now preserves Unicode characters (e.g., `café`, `こんにちは`) instead of escaping them as `\uXXXX` sequences via a shared `print_json()` helper with `ensure_ascii=False`. Thanks to **@nickyfoto** for the contribution. (PR #100)
+
+## [0.5.1] - 2026-03-19
+
+### Fixed
+- **Deep Research Transient Errors (Issue #98)** — Deep research (`--mode deep`) no longer silently fails with a generic "no confirmation from API" message when Google returns a transient error. The structured error payload (e.g., `DeepResearchErrorDetail` code 3) is now properly detected and surfaced with an actionable message: *"Google API error code 3 (DeepResearchErrorDetail). This is likely a transient issue. Try again in a few minutes, or use --mode fast."*
+- **Research RPC Infrastructure** — Refactored `start_research()` to use the standard `_call_rpc()` pipeline instead of raw HTTP calls. This gives deep and fast research automatic auth retry, server error retries, and enhanced debug logging for free.
+
+### Added
+- **`RPCError` exception class** — New structured error type in `core/errors.py` for Google batchexecute errors with error code, detail type, and detail data attributes. All non-auth RPC errors (not just code 16) are now properly raised.
+- **6 new unit tests** (3 core-level, 3 service-level) for RPCError detection and user-friendly error messages (total: 634 tests)
+
 ## [0.5.0] - 2026-03-18
 
 ### Fixed

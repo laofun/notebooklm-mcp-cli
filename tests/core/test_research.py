@@ -2,7 +2,7 @@
 """Tests for ResearchMixin."""
 
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from notebooklm_tools.core.base import BaseClient
 from notebooklm_tools.core.research import ResearchMixin
@@ -78,3 +78,72 @@ class TestResearchMixinMethods:
         result = mixin.import_research_sources("notebook-id", "task-id", [])
         
         assert result == []
+
+
+class TestPollResearchMultiTaskFallback:
+    """Test Issue #106: poll_research should not return None for multi-task notebooks."""
+
+    def _build_task_data(self, task_id, query, status_code=2, mode=1):
+        """Build a mock task_data list as returned by the API.
+        
+        status_code: 1=in_progress, 2=completed, 6=imported
+        mode: 1=fast, 5=deep
+        """
+        return [
+            task_id,
+            [None, [query, 1], mode, [[], "summary"], status_code],
+        ]
+
+    @patch.object(ResearchMixin, "_get_client")
+    @patch.object(ResearchMixin, "_build_request_body", return_value="body")
+    @patch.object(ResearchMixin, "_build_url", return_value="http://test")
+    @patch.object(ResearchMixin, "_parse_response")
+    @patch.object(ResearchMixin, "_extract_rpc_result")
+    def test_multi_task_mutated_id_returns_most_recent(
+        self, mock_extract, mock_parse, mock_url, mock_body, mock_get_client
+    ):
+        """When target_task_id doesn't match any task in a multi-task notebook,
+        poll_research should return the most recent task, not None."""
+        mixin = ResearchMixin(cookies={"test": "cookie"}, csrf_token="test")
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_get_client.return_value.post.return_value = mock_response
+
+        # Simulate 2 tasks: old fast + mutated deep
+        mock_extract.return_value = [
+            self._build_task_data("fast-task-id", "fast query", status_code=2),
+            self._build_task_data("mutated-deep-id", "deep query", status_code=2, mode=5),
+        ]
+
+        result = mixin.poll_research("nb-1", target_task_id="original-deep-id")
+
+        # Should NOT return None — should fall back to the most recent task
+        assert result is not None
+        assert result["task_id"] == "fast-task-id"
+
+    @patch.object(ResearchMixin, "_get_client")
+    @patch.object(ResearchMixin, "_build_request_body", return_value="body")
+    @patch.object(ResearchMixin, "_build_url", return_value="http://test")
+    @patch.object(ResearchMixin, "_parse_response")
+    @patch.object(ResearchMixin, "_extract_rpc_result")
+    def test_multi_task_prefers_in_progress(
+        self, mock_extract, mock_parse, mock_url, mock_body, mock_get_client
+    ):
+        """When multiple tasks exist and target_task_id doesn't match,
+        an in-progress task should be preferred over a completed one."""
+        mixin = ResearchMixin(cookies={"test": "cookie"}, csrf_token="test")
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_get_client.return_value.post.return_value = mock_response
+
+        # Simulate: completed fast task + in-progress deep task
+        mock_extract.return_value = [
+            self._build_task_data("fast-task-id", "fast query", status_code=2),
+            self._build_task_data("deep-task-id", "deep query", status_code=1, mode=5),
+        ]
+
+        result = mixin.poll_research("nb-1", target_task_id="original-deep-id")
+
+        assert result is not None
+        assert result["task_id"] == "deep-task-id"
+        assert result["status"] == "in_progress"
