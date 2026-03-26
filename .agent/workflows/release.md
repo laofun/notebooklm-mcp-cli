@@ -59,3 +59,5 @@ gh release create vX.Y.Z --title "vX.Y.Z" --generate-notes
 - [ ] Committed and pushed
 - [ ] Tagged
 - [ ] GitHub release created (triggers PyPI publish)
+
+Also, there is a GitHub action that checks that the YAML file, the init file, and the skill file must be on the same version; otherwise, this will fail. 

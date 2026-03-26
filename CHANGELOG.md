@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.9] - 2026-03-25
+### Fixed
+- Fixed a fatal `ImportError` in the CLI (`ArtifactNotReadyError`) caused by missed codebase updates during the v0.5.8 structural refactor.
+
+## [0.5.8] - 2026-03-25
+
+### Fixed/Changed
+- Codebase-wide refactor to comply with comprehensive `ruff` linting and formatting standards.
+- Fixed broken imports caused by code structure refactoring.
+- A massive thank you to **@nikosavola** for submitting BOTH the `ruff` linting and formatting refactor (PR #110) AND the GitHub Actions CI Pipeline (PR #109)! These are huge improvements to the codebase quality.
+
+## [0.5.7] - 2026-03-25
+
+### Added
+- **GitHub Actions CI Pipeline (PR #109)** — Added a comprehensive GitHub Actions workflow that automatically runs linting (`ruff format --check`, `ruff check`) and the full pytest suite (`uv run pytest`) on pull requests and pushes to `main`. Linting errors now block the build, guaranteeing code quality before merge. Thanks to **@nikosavola** for this contribution!
+
 ## [0.5.6] - 2026-03-24
 
 ### Fixed
