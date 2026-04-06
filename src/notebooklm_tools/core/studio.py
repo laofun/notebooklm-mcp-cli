@@ -915,13 +915,13 @@ class StudioMixin(BaseClient):
         # Card count code (default = 2)
         count_code = constants.FLASHCARD_COUNT_DEFAULT
 
-        # Options at position 9: [null, [1, focus_prompt, null*4, [difficulty, card_count]]]
+        # Options at position 9: [null, [1, null, focus_prompt, null*3, [difficulty, card_count]]]
         flashcard_options = [
             None,
             [
                 1,  # Unknown (possibly default count base)
-                focus_prompt or None,  # Focus prompt
-                None,
+                None,  # Reserved (must be null)
+                focus_prompt or None,  # Focus prompt (index 2)
                 None,
                 None,
                 None,
@@ -1010,13 +1010,13 @@ class StudioMixin(BaseClient):
 
         sources_nested = [[[sid]] for sid in source_ids]
 
-        # Quiz options at position 9: [null, [2, focus_prompt, null*5, [question_count, difficulty]]]
+        # Quiz options at position 9: [null, [2, null, focus_prompt, null*4, [question_count, difficulty]]]
         quiz_options = [
             None,
             [
                 2,  # Format/variant code
-                focus_prompt or None,  # Focus prompt
-                None,
+                None,  # Reserved (must be null)
+                focus_prompt or None,  # Focus prompt (index 2)
                 None,
                 None,
                 None,

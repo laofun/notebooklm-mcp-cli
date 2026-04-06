@@ -3,6 +3,7 @@
 import typer
 from rich.console import Console
 
+from notebooklm_tools.cli.formatters import print_json
 from notebooklm_tools.cli.utils import get_client, handle_error
 from notebooklm_tools.core.alias import get_alias_manager
 from notebooklm_tools.core.exceptions import NLMError
@@ -53,9 +54,7 @@ def export_artifact(
             )
 
         if json_output:
-            import json
-
-            print(json.dumps(result, indent=2))
+            print_json(result)
             return
 
         console.print(f"[green]✓[/green] {result['message']}")

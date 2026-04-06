@@ -4,7 +4,7 @@ from typing import Any
 
 from ...services import ServiceError
 from ...services import sources as sources_service
-from ._utils import get_client, logged_tool
+from ._utils import coerce_list, get_client, logged_tool
 
 
 @logged_tool()
@@ -50,6 +50,9 @@ def source_add(
     """
     try:
         client = get_client()
+
+        # Coerce list params from MCP clients (may arrive as strings)
+        urls = coerce_list(urls)
 
         # Bulk URL add: when urls list is provided
         if urls and source_type == "url":
@@ -127,6 +130,8 @@ def source_sync_drive(source_ids: list[str], confirm: bool = False) -> dict[str,
 
     try:
         client = get_client()
+        # Coerce list params from MCP clients (may arrive as strings)
+        source_ids = coerce_list(source_ids)
         results = sources_service.sync_drive_sources(client, source_ids)
         synced_count = sum(1 for r in results if r.get("synced"))
         return {
@@ -188,6 +193,9 @@ def source_delete(
 
     try:
         client = get_client()
+
+        # Coerce list params from MCP clients (may arrive as strings)
+        source_ids = coerce_list(source_ids)
 
         # Bulk delete: when source_ids list is provided
         if source_ids:

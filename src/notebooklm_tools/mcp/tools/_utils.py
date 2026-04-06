@@ -193,3 +193,33 @@ ESSENTIAL_COOKIES = [
     "__Secure-1PSIDCC",
     "__Secure-3PSIDCC",  # Session cookies (rotate frequently)
 ]
+
+
+def coerce_list(val, item_type=str):
+    """Coerce a value into a list of ``item_type``.
+
+    MCP clients (Claude Desktop, Cursor, etc.) may serialize list parameters as:
+      - An actual Python list  → pass through
+      - A JSON string          → ``'["a","b"]'``
+      - A comma-separated str  → ``'a,b,c'``
+      - A single bare value    → ``'a'``
+      - None                   → ``[]``
+
+    This helper normalizes all forms into ``list[item_type]``.
+    """
+    if val is None:
+        return None  # Preserve None semantics (means "use default / all")
+    if isinstance(val, list):
+        return [item_type(x) for x in val]
+    if isinstance(val, str):
+        val = val.strip()
+        if not val:
+            return None
+        if val.startswith("["):
+            try:
+                return [item_type(x) for x in json.loads(val)]
+            except (json.JSONDecodeError, ValueError):
+                pass  # Fall through to comma-split
+        return [item_type(x.strip()) for x in val.split(",") if x.strip()]
+    # Single non-string value (e.g. an int)
+    return [item_type(val)]

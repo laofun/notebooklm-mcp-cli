@@ -4,7 +4,7 @@ from typing import Any
 
 from ...services import ServiceError
 from ...services import research as research_service
-from ._utils import get_client, logged_tool
+from ._utils import coerce_list, get_client, logged_tool
 
 
 @logged_tool()
@@ -29,6 +29,18 @@ def research_start(
     """
     try:
         client = get_client()
+
+        if not notebook_id and title:
+            from ...services import notebooks as notebook_service
+
+            nb_result = notebook_service.create_notebook(client, title=title)
+            notebook_id = nb_result["notebook_id"]
+        elif not notebook_id:
+            raise ServiceError(
+                "Research requires an existing notebook_id or a title to create a new one.",
+                user_message="Please provide either a notebook_id or a title for a new notebook.",
+            )
+
         result = research_service.start_research(
             client,
             notebook_id,
@@ -75,6 +87,8 @@ def research_status(
             task_id=task_id,
             query=query,
             compact=compact,
+            poll_interval=poll_interval,
+            max_wait=max_wait,
         )
         return result
     except ServiceError as e:
@@ -105,6 +119,8 @@ def research_import(
     """
     try:
         client = get_client()
+        # Coerce list params from MCP clients (may arrive as strings)
+        source_indices = coerce_list(source_indices, item_type=int)
         result = research_service.import_research(
             client,
             notebook_id,

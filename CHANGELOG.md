@@ -5,6 +5,61 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.16] - 2026-04-04
+
+### Fixed
+- **URL Source Addition Failing with INVALID_ARGUMENT (Issue #121)** — Fixed `source_add` (URL type) failing with `RPC error code 3 (INVALID_ARGUMENT)` for some users due to Google migrating the `add_source` endpoint. Implemented a dual-RPC fallback: the system tries the legacy `izAoDd` endpoint first, and if it returns code 3, automatically retries with the new `ozz5Z` endpoint. The working endpoint is cached per session to avoid extra round-trips on subsequent calls. Both single and bulk URL additions (`url` and `urls` parameters) benefit from the fallback. Thanks to **@Neophen** for reporting!
+
+### Added
+- **19 new unit tests** for dual RPC fallback mechanism (total: 704 tests)
+
+## [0.5.15] - 2026-04-02
+
+### Added
+- **Async Query Polling (Issue #125)** — New `notebook_query_start` and `notebook_query_status` MCP tools for querying large notebooks (50+ sources) without hitting MCP client timeouts. `notebook_query_start` fires the query in a background thread and returns immediately with a `query_id`. Poll `notebook_query_status` with the `query_id` to get the result when ready. Includes automatic TTL cleanup (10 min) for stale entries. The existing `notebook_query` tool remains unchanged for backward compatibility.
+- **10 new unit tests** for async query lifecycle (total: 685 tests)
+
+## [0.5.14] - 2026-04-01
+
+### Fixed
+- **Research Start Dead Parameter (Issue #123)** — Fixed a bug where `nlm research start "query" --title "My Title"` (and the corresponding MCP tool parameter `title`) failed because the internal logic did not automatically trigger new notebook creation when `title` was provided without a `notebook_id`.
+
+## [0.5.13] - 2026-03-31
+
+### Fixed
+- **Python 3.13 Crash in `nlm skill` (Issue #122)** — Fixed a crash when running `nlm skill install` on Python 3.13, which was caused by using `@click.option(type=Literal["user", "project"])`. Replaced with standard string validation. Thanks to **@zhaoguoqiao** for reporting!
+- **CDP Proxy Bypass (Issue #119)** — The `httpx` HTTP2 client was honoring system proxy settings even for the internal `127.0.0.1` CDP WebSocket acquisition call (`http://127.0.0.1:9222/json`). This caused connections to fail on machines running proxies. Restored the `proxy=None` argument to explicitly bypass proxies for local loopback connections. Thanks to **@sjs33** for discovering and reporting this!
+- **`research_status` Polling Loop (PR #120)** — Restored the internal polling loop for `research_status` when `max_wait` is set. Previously, the parameters were ignored after a refactor, and it always returned after a single check. The tool now correctly blocks and polls until the research is completed or times out. Thanks to **@byingyang** for the excellent bug report, full implementation, and test suite!
+
+## [0.5.12] - 2026-03-30
+
+### Fixed
+- **Auth recovery skips profile-based cookies (Issue #117, Bug 1)** — `_try_reload_or_headless_auth()` gated Layer 2 recovery on `auth.json` existence. If the legacy file didn't exist, valid profile-based credentials in `profiles/default/cookies.json` were completely skipped, falling straight through to headless auth (Layer 3). Now always calls `load_cached_tokens()` which checks the profile directory first, then falls back to `auth.json`. Thanks to **@olaservo** for the incredibly detailed report!
+- **`--cdp-url` ignored by builtin provider (Issue #117, Bug 2)** — `nlm login --cdp-url http://127.0.0.1:9222` was ignored when using the default builtin provider, always launching a new Chrome instead. Now, when `--cdp-url` is explicitly provided (even with the builtin provider), the CLI auto-routes to the existing-CDP extraction path, matching the user's intent to connect to an already-running browser. Thanks again to **@olaservo**!
+- **Pre-existing lint errors blocking CI** — Fixed 3 lint violations (`SIM105` in `auth.py`, `I001` in `base.py`, `F401` in `test_coerce_list.py`) that were blocking the CI pipeline for PR #118.
+
+### Security
+- **Restrict `auth.json` file permissions (PR #116)** — Auth token cache files are now written with `chmod 600` (owner read/write only), preventing other local users or processes from reading active session cookies. Thanks to **@tody-agent** for the security audit!
+
+## [0.5.11] - 2026-03-27
+
+### Added
+- **Enterprise / Google Workspace support (PR #114)** — Configurable base URL via `NOTEBOOKLM_BASE_URL` environment variable. Set to `https://notebooklm.cloud.google.com` (or your organization's URL) to use NotebookLM with managed Workspace accounts. All API calls, authentication, file uploads, and URL detection are updated to use the configured base URL. Default remains `https://notebooklm.google.com` for personal accounts (fully backward compatible). Thanks to **@Robiton** for this contribution!
+
+### Documentation
+- Added "Enterprise / Google Workspace" section to `docs/AUTHENTICATION.md`
+- Added `NOTEBOOKLM_BASE_URL` to environment variables table in `docs/MCP_GUIDE.md`
+
+## [0.5.10] - 2026-03-27
+
+### Fixed
+- **Quiz/Flashcard `focus_prompt` ignored (Issue #113)** — The `focus_prompt` parameter for quiz and flashcard generation was silently ignored due to an off-by-one error in the RPC payload structure. The backend expects `focus_prompt` at array index `[2]` (after a reserved `null` slot), but it was being placed at index `[1]`. Both `create_quiz` and `create_flashcards` in `core/studio.py` now use the correct payload layout. Thanks to **@ojsed** for the detailed analysis!
+- **`source_ids` parameter fails with string input (Issue #111)** — MCP clients (Claude Desktop, Cursor, etc.) frequently serialize list parameters as JSON strings (`'["a","b"]'`) or comma-separated strings (`'a,b'`) instead of native Python lists, causing Pydantic validation errors. Added a `coerce_list()` helper in `mcp/tools/_utils.py` that normalizes all input forms (JSON strings, comma-separated, single values, native lists) into proper `list[T]`. Applied to all 6 list parameters across 4 MCP tool files: `studio_create`, `notebook_query`, `source_add`, `source_sync_drive`, `source_delete`, and `research_import`. Thanks to **@Carlos-OL** for reporting!
+- **Non-ASCII characters in JSON output (PR #112)** — Fixed `ensure_ascii=False` missing from `json.dumps()` calls across core and CLI layers, causing Unicode characters to be escaped as `\uXXXX` in RPC request bodies and file persistence. Thanks to **@rujinlong** for the fix!
+
+### Added
+- **13 new unit tests** for `coerce_list` helper (total: 660 tests)
+
 ## [0.5.9] - 2026-03-25
 ### Fixed
 - Fixed a fatal `ImportError` in the CLI (`ArtifactNotReadyError`) caused by missed codebase updates during the v0.5.8 structural refactor.

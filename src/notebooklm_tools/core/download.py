@@ -83,7 +83,7 @@ class DownloadMixin(BaseClient):
             "_PAGE_FETCH_HEADERS",
             {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
         )
-        headers = {**base_headers, "Referer": "https://notebooklm.google.com/"}
+        headers = {**base_headers, "Referer": f"{self._get_base_url()}/"}
 
         # Use httpx.Cookies for proper cross-domain redirect handling
         cookies = self._get_httpx_cookies()
@@ -1074,7 +1074,9 @@ class DownloadMixin(BaseClient):
             questions = app_data.get("quiz", [])
             if output_format == "markdown":
                 return self._format_quiz_markdown(title, questions)
-            return json.dumps({"title": title, "questions": questions}, indent=2)
+            return json.dumps(
+                {"title": title, "questions": questions}, indent=2, ensure_ascii=False
+            )
 
         # Flashcards
         cards = app_data.get("flashcards", [])
@@ -1083,7 +1085,7 @@ class DownloadMixin(BaseClient):
 
         # Normalize JSON format: {"f": "...", "b": "..."} -> {"front": "...", "back": "..."}
         normalized = [{"front": c.get("f", ""), "back": c.get("b", "")} for c in cards]
-        return json.dumps({"title": title, "cards": normalized}, indent=2)
+        return json.dumps({"title": title, "cards": normalized}, indent=2, ensure_ascii=False)
 
     async def _download_interactive_artifact(
         self,

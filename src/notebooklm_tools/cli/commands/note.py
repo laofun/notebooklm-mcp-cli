@@ -4,6 +4,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from notebooklm_tools.cli.formatters import print_json
 from notebooklm_tools.cli.utils import get_client, handle_error
 from notebooklm_tools.core.alias import get_alias_manager
 from notebooklm_tools.core.exceptions import NLMError
@@ -37,9 +38,7 @@ def list_notes(
             for note in notes:
                 console.print(note["id"])
         elif json_output:
-            import json
-
-            print(json.dumps(result, indent=2))
+            print_json(result)
         else:
             if not notes:
                 console.print(f"[dim]No notes found in notebook {notebook_id}[/dim]")
