@@ -89,8 +89,9 @@ nlm audio create <notebook> --format deep_dive --length long --confirm
 # Video
 nlm video create <notebook> --confirm
 nlm video create <notebook> --format explainer --style classic --confirm
-# Formats: explainer, brief
-# Styles: auto_select, classic, whiteboard, kawaii, anime, watercolor, retro_print, heritage, paper_craft
+nlm video create <notebook> --style custom --style-prompt "A children's storybook illustration" --confirm
+# Formats: explainer, brief, cinematic
+# Styles: auto_select, custom, classic, whiteboard, kawaii, anime, watercolor, retro_print, heritage, paper_craft
 
 # Reports
 nlm report create <notebook> --format "Briefing Doc" --confirm
@@ -133,6 +134,7 @@ nlm download flashcards <notebook> <artifact-id> --format markdown --output card
 nlm research start "query" --notebook-id <id> --mode fast  # Quick search
 nlm research start "query" --notebook-id <id> --mode deep  # Extended research
 nlm research start "query" --notebook-id <id> --source drive  # Search Drive
+nlm research start "query" --notebook-id <id> --auto-import # Start, poll, and import in one step
 nlm research status <notebook> --max-wait 300              # Poll until done
 nlm research import <notebook> <task-id>                   # Import sources
 nlm research import <notebook> <task-id> --timeout 600     # Custom timeout (default: 300s)
@@ -222,7 +224,7 @@ nlm config set output.format json       # Change default output format
 | `output.format` | `table` | Default output format (table, json) |
 | `output.color` | `true` | Enable colored output |
 | `output.short_ids` | `true` | Show shortened IDs |
-| `auth.browser` | `auto` | Preferred browser for login (auto, chrome, arc, brave, edge, chromium, vivaldi, opera). Falls back to auto if preferred browser is not found. |
+| `auth.browser` | `auto` | Preferred browser for login (auto, chrome, arc, brave, edge, chromium, vivaldi, opera). Falls back to auto if the preferred browser is not found. |
 | `auth.default_profile` | `default` | Profile to use when `--profile` not specified. **Note:** The MCP Server always uses the active default profile. Changing this setting will instantaneously switch the MCP server's Google account. |
 
 ### Aliases (Shortcuts)

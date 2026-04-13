@@ -5,6 +5,80 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.23] - 2026-04-12
+
+### Added
+- **Restore NotebookLM MCP and CLI runtime contracts (PR #152)** — Fixed MCP tool boundary registration, normalized error payloads, and restored download/upload sync-compatible entrypoints. Thank you **@sickn33** for this immense contribution!
+
+### Fixed
+- **Windows: Server crashes immediately on startup (Issue #150)** — `os.execvp` fails on Windows. Replaced with `subprocess.run` to prevent immediate crashes on Windows 11 during server startup via the `.mcpb` bundle. Added explicit `stdin=sys.stdin`, `stdout=sys.stdout`, and `stderr=sys.stderr` to ensure the JSON-RPC stdio channel between Claude Desktop and the server remains properly connected across platforms. Thanks to **@m3saros** for diagnosing the root cause and providing the exact fix!
+
+## [0.5.22] - 2026-04-11
+
+### Added
+- **Studio status code parity and normalization (PR #149)** — Consolidated the extraction logic for studio artifacts into a centralized `_normalize_studio_status` routine. The `JsonFormatter` has been updated to dynamically populate returned JSON payloads with newly available artifact fields (such as `audio_url`, `video_url`, `slide_deck_url`, `flashcard_count`) without breaking the shape expected by downstream consumers. Huge thanks to **@sickn33** for this amazing contribution!
+
+### Fixed
+- **API `poll_studio_status` bypassing auth recovery** — The core `poll_studio_status` helper function was making raw HTTP calls and dodging the standard `_call_rpc` pipeline. This caused it to immediately fail on `400 Bad Request` exceptions whenever the user's `build_label` or session tokens went stale. The polling function now correctly wraps its logic in `_call_rpc`, securing free auth recovery loops, retries, and unified debug capability during studio polling.
+
+## [0.5.21] - 2026-04-11
+
+### Fixed
+- **HTTP 400 bad request causing silent auth failures (Issue #147)** — Google returns `400 Bad Request` instead of `401` or `403` when the internal CSRF token expires. Added 400 to the retryable auth status codes, which fixes auth recovery failures and prevents tracebacks (PR #148).
+- **WSL CDP failures breaking auth (Issue #138, #144)** — Native WSL connectivity has been fully added. `nlm login --wsl` securely launches and channels DevTools via `0.0.0.0` to safely bridge the WSL network boundary.
+- **Pass Build Label in login check** — The `nlm login --check` command was initiating a client without passing the configured build label, unnecessarily triggering a three-month backward fallback.
+
+## [0.5.20] - 2026-04-10
+
+### Fixed
+- **`nlm create infographic` crash when `--style` not specified (Issue #142)** — The verb-first route was missing the `--style` option entirely, causing a `TypeError` on invocation. Fixed alongside 12 other missing parameters across verb-first wrappers.
+- **Multiple verb-first commands missing parameters** — The verb-first CLI route (`nlm create`, `nlm add`, `nlm describe`, `nlm query`, `nlm delete`) was missing 13 parameters that existed on the noun-first route: `--focus` on `nlm create quiz` and `nlm create flashcards`; `--wait` and `--wait-timeout` on `nlm add url`, `nlm add text`, and `nlm add drive`; `--auto-import` on `nlm research start`; `--format` on `nlm download slides`; `--json` on `nlm describe notebook`, `nlm query notebook`, and `nlm source content`; and `--confirm` on `nlm delete alias`.
+
+### Changed
+- **Widened `fastmcp` dependency to `>=2.0.0,<4.0` (Issue #141)** — The previous upper bound (`<3.0`) caused a startup crash when `fakeredis 2.35.0` was installed alongside `fastmcp 2.x`. Widening to `<4.0` resolves the incompatibility and allows users to use newer FastMCP releases without version conflicts.
+
+### Added
+- **Parameter parity test (`tests/cli/test_verbs_parity.py`)** — Automatically compares every verb-first wrapper in `cli/commands/verbs.py` against its target function to detect missing parameters. CI will now fail if a verb wrapper drifts out of sync with its noun-first counterpart.
+
+## [0.5.19] - 2026-04-09
+
+### Added
+- **Auto-Import for Research** — Added `--auto-import` / `--wait-and-import` flags to `nlm research start` to automatically wait for research to finish and immediately import.
+
+### Fixed
+- **Deep Research Task ID Mismatch (Issue #140)** — Fixed a bug where deep research task IDs were being mutated by the backend and causing import failures. The CLI now polls the correct mutated task ID before issuing the import command.
+- **Empty Notebook Error Mapping** — When attempting to query a notebook with 0 sources, the backend previously threw an unhelpful `API error (code 5): unknown`. This now returns a clean validation error indicating the notebook is empty and needs sources added.
+- **gRPC Error Code Mapping** — Generic undocumented gRPC error codes from Google's batchexecute API (like 5, 7, 16) are now mapped to their standard names (`NOT_FOUND`, `PERMISSION_DENIED`, etc.) instead of logging as `unknown`.
+
+## [0.5.18] - 2026-04-09
+
+### Added
+- **WSL2 Authentication Support (PR #138)** — New `nlm login --wsl` flag launches Windows Chrome from WSL2 for seamless authentication. Includes automatic firewall rule management, cross-boundary CDP communication, and a cleanup mechanism for temporary Chrome profiles. Full setup guide at `docs/WSL_SETUP.md`. Thanks to **@kylebrodeur** for the comprehensive implementation!
+- **WSL2 Diagnostics** — `nlm doctor` now detects WSL2 environments and reports Chrome availability, Windows interop status, and firewall configuration.
+
+### Fixed
+- **Thread-Safety for Concurrent MCP Tool Calls (PR #135)** — Added `threading.Lock` to `BaseClient` protecting mutable state (`_reqid_counter`, `_conversation_cache`, `_source_rpc_version`) from race conditions during parallel MCP tool invocations. Uses double-checked locking for singleton client initialization. Includes 7 new concurrent access tests. Thanks to **@xiangyuwang1998** for the implementation!
+- **Restored CDP WebSocket Timeout** — Re-applied the 30-second timeout on `execute_cdp_command()` that was inadvertently removed during the WSL2 merge. Prevents infinite hangs on stale/dropped WebSocket connections.
+- **Restored Port Map File Permissions** — Re-applied `chmod 0o600` on the port map file that was inadvertently removed during the WSL2 merge. Ensures the port map is only readable by the owner.
+
+## [0.5.17] - 2026-04-07
+
+### Security
+- **CDP Origin Restriction (PR #133)** — Chrome is now launched with `--remote-allow-origins` restricted to `localhost` and `127.0.0.1` only, preventing malicious webpages from connecting to the CDP debug port. Previously allowed all origins (`*`). Thanks to **@wccheung11011001** for the security audit!
+- **Base URL Allowlist (PR #133)** — The `NOTEBOOKLM_BASE_URL` environment variable is now validated against an allowlist of known Google domains (HTTPS only), preventing cookie exfiltration via environment injection.
+- **Download Path Traversal Protection (PR #133)** — Added `validate_output_path()` to block downloads from writing to sensitive directories (`.ssh`, `.gnupg`, `.aws`, `.kube`, `.claude`, `.config`) or overwriting sensitive files (`authorized_keys`, `id_rsa`, `.bashrc`, etc.).
+- **File Permission Hardening (PR #133)** — Auth-related files, debug output, and the port map are now created with restrictive permissions (`0o600` for files, `0o700` for the storage directory). Thanks to **@wccheung11011001**!
+- **CDP WebSocket Timeout (PR #133)** — Added a 30-second timeout to CDP WebSocket commands to prevent infinite blocking on stale or dropped connections.
+
+### Added
+- **Custom Visual Style Prompts for Video (PR #131)** — You can now pass a custom style description when creating videos with `--style custom --style-prompt "your description"` (CLI) or `video_style_prompt` (MCP). The style prompt is also returned in studio status responses. Thanks to **@agarwalvipin** for the implementation and live API verification!
+- **Audio Source Support (PR #134)** — `nlm source add --file` now correctly handles audio uploads (m4a, wav, mp3). Audio sources use type code 10, which was previously unrecognized. The `--wait` flag now handles audio's transient status 3 state (which is not a hard failure for audio, unlike other source types) and a new `--wait-timeout` flag (default 600s) gives long recordings enough time to finish transcribing. Thanks to **@stanleykao72** for the thorough investigation and fix!
+- **CONTRIBUTING.md** — Added a contributor guide covering architecture rules, the Chrome DevTools API capture workflow, testing requirements (both CLI and MCP), security guidelines, error handling patterns, and PR expectations.
+
+### Fixed
+- **`build_label` Data Loss (PR #133)** — `Profile.to_dict()` was silently dropping the `build_label` field, causing it to be lost across restarts and re-fetched from scratch. Now properly persisted. Thanks to **@wccheung11011001**!
+- **Ruff Lint and Format Violations** — Fixed `B904` exception chaining in CDP timeout handler, and resolved format violations in `sources.py`, `config.py`, `test_url_source_fallback.py`, and `test_studio.py`.
+
 ## [0.5.16] - 2026-04-04
 
 ### Fixed

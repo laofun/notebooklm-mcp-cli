@@ -13,6 +13,7 @@ import logging
 import os
 import random
 import re
+import threading
 import urllib.parse
 from typing import Any
 
@@ -225,6 +226,7 @@ class BaseClient:
     SOURCE_TYPE_GOOGLE_DOCS = constants.SOURCE_TYPE_GOOGLE_DOCS
     SOURCE_TYPE_GOOGLE_OTHER = constants.SOURCE_TYPE_GOOGLE_OTHER
     SOURCE_TYPE_PASTED_TEXT = constants.SOURCE_TYPE_PASTED_TEXT
+    SOURCE_TYPE_AUDIO = constants.SOURCE_TYPE_AUDIO
 
     # Sharing
     SHARE_ROLE_OWNER = constants.SHARE_ROLE_OWNER
@@ -293,6 +295,14 @@ class BaseClient:
         # This caches which version works for this session to avoid double HTTP calls.
         # Values: None (unresolved), "v1" (izAoDd), "v2" (ozz5Z)
         self._source_rpc_version: str | None = None
+
+        # Lock for thread-safe access to mutable instance state.
+        # FastMCP dispatches sync tool functions into a thread pool, so
+        # concurrent MCP tool calls share this singleton client instance.
+        # The lock protects: _client, _reqid_counter, _conversation_cache,
+        # _source_rpc_version, csrf_token, _session_id, cookies.
+        # It is never held during network I/O.
+        self._state_lock = threading.Lock()
 
         # Only refresh CSRF token if not provided - tokens actually last hours/days, not minutes
         # The retry logic in _call_rpc() handles expired tokens gracefully
@@ -363,12 +373,17 @@ class BaseClient:
     # =========================================================================
 
     def _get_client(self) -> httpx.Client:
-        """Get or create HTTP client."""
-        if self._client is None:
+        """Get or create HTTP client (thread-safe)."""
+        if self._client is not None:
+            return self._client
+        with self._state_lock:
+            # Double-checked locking: re-check inside lock
+            if self._client is not None:
+                return self._client
             # Use cookies object directly
             cookies = self._get_httpx_cookies()
 
-            self._client = httpx.Client(
+            client = httpx.Client(
                 cookies=cookies,
                 headers={
                     "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
@@ -382,8 +397,9 @@ class BaseClient:
 
             # Explicitly set headers if needed, though constructor handles most
             if self.csrf_token:
-                self._client.headers["X-Goog-Csrf-Token"] = self.csrf_token
+                client.headers["X-Goog-Csrf-Token"] = self.csrf_token
 
+            self._client = client
         return self._client
 
     def _get_async_client(self) -> httpx.AsyncClient:
@@ -524,8 +540,20 @@ class BaseClient:
                                                 detail_data = detail[1] if len(detail) > 1 else None
                                                 break
 
+                                    # Provide fallback names for common gRPC status codes
+                                    # if the backend didn't provide a specific detail_type
+                                    friendly_type = detail_type
+                                    if not friendly_type:
+                                        grpc_codes = {
+                                            3: "INVALID_ARGUMENT",
+                                            5: "NOT_FOUND",
+                                            7: "PERMISSION_DENIED",
+                                            16: "UNAUTHENTICATED",
+                                        }
+                                        friendly_type = grpc_codes.get(error_code, "unknown")
+
                                     raise RPCError(
-                                        f"API error (code {error_code}): {detail_type or 'unknown'}",
+                                        f"API error (code {error_code}): {friendly_type}",
                                         error_code=error_code,
                                         detail_type=detail_type,
                                         detail_data=detail_data,
@@ -642,8 +670,12 @@ class BaseClient:
                 # Exhausted retries, re-raise
                 raise
 
-            # Check for auth failures (401/403 HTTP)
-            is_http_auth = e.response.status_code in (401, 403)
+            # Check for auth failures (400/401/403 HTTP)
+            # 400 is included because Google returns "400 Bad Request" when
+            # the CSRF token (at= body param) is expired or invalid, rather
+            # than a 401/403.  Our Layer-1 recovery (_refresh_auth_tokens)
+            # re-extracts a fresh CSRF token from the page, which fixes this.
+            is_http_auth = e.response.status_code in (400, 401, 403)
             if not is_http_auth:
                 # Not a retryable or auth error, re-raise immediately
                 raise
@@ -661,7 +693,8 @@ class BaseClient:
         if not _retry:
             try:
                 self._refresh_auth_tokens()
-                self._client = None
+                with self._state_lock:
+                    self._client = None
                 return self._call_rpc(rpc_id, params, path, timeout, _retry=True)
             except ValueError:
                 # CSRF refresh failed (cookies expired) - continue to layer 2
@@ -669,7 +702,8 @@ class BaseClient:
 
         # Layer 2 & 3: Reload from disk or run headless auth (deep retry)
         if not _deep_retry and self._try_reload_or_headless_auth():
-            self._client = None
+            with self._state_lock:
+                self._client = None
             return self._call_rpc(rpc_id, params, path, timeout, _retry=True, _deep_retry=True)
 
         # All recovery attempts failed
@@ -727,23 +761,28 @@ class BaseClient:
                 debug_dir.mkdir(parents=True, exist_ok=True)
                 debug_path = debug_dir / "debug_page.html"
                 debug_path.write_text(html, encoding="utf-8")
+                import contextlib as _ctxlib
+
+                with _ctxlib.suppress(OSError):
+                    debug_path.chmod(0o600)
                 raise ValueError(
                     f"Could not extract CSRF token from page. "
                     f"Page saved to {debug_path} for debugging. "
                     f"The page structure may have changed."
                 )
 
-            self.csrf_token = csrf_token
-
             # Extract session ID (FdrFJe) - optional but helps
             sid_match = re.search(r'"FdrFJe":"([^"]+)"', html)
-            if sid_match:
-                self._session_id = sid_match.group(1)
 
             # Extract build label (cfb2h) - keeps bl param current
             bl_match = re.search(r'"cfb2h":"([^"]+)"', html)
-            if bl_match:
-                self._bl = bl_match.group(1)
+
+            with self._state_lock:
+                self.csrf_token = csrf_token
+                if sid_match:
+                    self._session_id = sid_match.group(1)
+                if bl_match:
+                    self._bl = bl_match.group(1)
 
             # Cache the extracted tokens to avoid re-fetching the page on next request
             self._update_cached_tokens()
@@ -799,9 +838,10 @@ class BaseClient:
             # Always reload from disk when auth fails - current tokens are known-bad
             # The cached tokens may be fresher (user ran nlm login)
             # or the same, but worth retrying with a fresh CSRF token extraction
-            self.cookies = cached.cookies
-            self.csrf_token = ""  # Force re-extraction of CSRF token
-            self._session_id = ""  # Force re-extraction of session ID
+            with self._state_lock:
+                self.cookies = cached.cookies
+                self.csrf_token = ""  # Force re-extraction of CSRF token
+                self._session_id = ""  # Force re-extraction of session ID
             return True
 
         # Try headless auth if Chrome profile exists
@@ -810,9 +850,10 @@ class BaseClient:
 
             tokens = run_headless_auth()
             if tokens:
-                self.cookies = tokens.cookies
-                self.csrf_token = tokens.csrf_token
-                self._session_id = tokens.session_id
+                with self._state_lock:
+                    self.cookies = tokens.cookies
+                    self.csrf_token = tokens.csrf_token
+                    self._session_id = tokens.session_id
                 return True
         except Exception as e:
             logger.debug(f"Headless auth failed: {e}")

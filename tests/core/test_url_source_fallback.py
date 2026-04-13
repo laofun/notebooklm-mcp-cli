@@ -24,7 +24,7 @@ YOUTUBE_URL = "https://www.youtube.com/watch?v=abc123"
 # Simulated RPC response matching what both v1 and v2 return.
 # Structure: [ [  [id_composite, title, ...], ...  ] ]
 # where id_composite = ["source-id"]
-MOCK_SOURCE_RESPONSE = [[[[  "src-id-001"], "Example Page", None, None]]]
+MOCK_SOURCE_RESPONSE = [[[["src-id-001"], "Example Page", None, None]]]
 
 
 def _make_client() -> SourceMixin:
@@ -33,9 +33,12 @@ def _make_client() -> SourceMixin:
     We patch __init__ entirely because BaseClient.__init__ requires
     real cookies / CSRF setup that we don't need for unit tests.
     """
+    import threading
+
     with patch.object(SourceMixin, "__init__", lambda self: None):
         client = SourceMixin()
     client._source_rpc_version = None
+    client._state_lock = threading.Lock()
     client._call_rpc = MagicMock(return_value=MOCK_SOURCE_RESPONSE)
     return client
 
@@ -264,12 +267,14 @@ class TestParseSourceResults:
     """Test the _parse_source_results static method."""
 
     def test_multiple_sources(self):
-        result = SourceMixin._parse_source_results([
+        result = SourceMixin._parse_source_results(
             [
-                [["s1"], "Title 1"],
-                [["s2"], "Title 2"],
+                [
+                    [["s1"], "Title 1"],
+                    [["s2"], "Title 2"],
+                ]
             ]
-        ])
+        )
         assert len(result) == 2
         assert result[0] == {"id": "s1", "title": "Title 1"}
         assert result[1] == {"id": "s2", "title": "Title 2"}

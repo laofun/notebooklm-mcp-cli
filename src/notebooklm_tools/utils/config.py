@@ -20,6 +20,12 @@ from pydantic import BaseModel, Field
 STORAGE_DIR_NAME = ".notebooklm-mcp-cli"
 
 
+_ALLOWED_BASE_HOSTS = {
+    "notebooklm.google.com",
+    "notebooklm.cloud.google.com",
+}
+
+
 def get_base_url() -> str:
     """Get the NotebookLM base URL.
 
@@ -27,7 +33,15 @@ def get_base_url() -> str:
     Set NOTEBOOKLM_BASE_URL to override, e.g. for enterprise:
         export NOTEBOOKLM_BASE_URL=https://notebooklm.cloud.google.com
     """
-    return os.environ.get("NOTEBOOKLM_BASE_URL", "https://notebooklm.google.com").rstrip("/")
+    url = os.environ.get("NOTEBOOKLM_BASE_URL", "https://notebooklm.google.com").rstrip("/")
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname not in _ALLOWED_BASE_HOSTS:
+        raise ValueError(
+            f"NOTEBOOKLM_BASE_URL must use https and one of: {_ALLOWED_BASE_HOSTS}. Got: {url}"
+        )
+    return url
 
 
 def get_default_language() -> str:
@@ -50,7 +64,7 @@ def get_storage_dir() -> Path:
     else:
         storage_dir = Path.home() / STORAGE_DIR_NAME
 
-    storage_dir.mkdir(exist_ok=True)
+    storage_dir.mkdir(exist_ok=True, mode=0o700)
     return storage_dir
 
 
@@ -100,6 +114,13 @@ def get_chrome_profile_dir(profile_name: str = "default") -> Path:
     chrome_dir = storage / "chrome-profiles" / profile_name
     chrome_dir.mkdir(parents=True, exist_ok=True)
     return chrome_dir
+
+
+def get_firefox_profile_dir(profile_name: str = "default") -> Path:
+    """Get Firefox profile directory kept for backwards compatibility."""
+    firefox_dir = get_storage_dir() / "firefox-profiles" / profile_name
+    firefox_dir.mkdir(parents=True, exist_ok=True)
+    return firefox_dir
 
 
 def get_config_file() -> Path:
@@ -325,7 +346,7 @@ class AuthConfig(BaseModel):
 
     browser: str = Field(
         default="auto",
-        description="Browser for auth: auto, chrome, arc, brave, edge, chromium, vivaldi, opera",
+        description=("Browser for auth: auto, chrome, arc, brave, edge, chromium, vivaldi, opera"),
     )
     default_profile: str = Field(default="default", description="Default profile name")
 

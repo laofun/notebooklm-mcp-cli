@@ -4,10 +4,11 @@ import logging
 import threading
 import time
 import uuid
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 from ..core.client import NotebookLMClient
 from ..core.conversation import QueryRejectedError
+from . import notebooks as notebook_service
 from .errors import ServiceError, ValidationError
 
 logger = logging.getLogger(__name__)
@@ -16,20 +17,30 @@ VALID_GOALS = ("default", "learning_guide", "custom")
 VALID_RESPONSE_LENGTHS = ("default", "longer", "shorter")
 MAX_PROMPT_LENGTH = 10_000
 
-# --- Async query state management ---
-_QUERY_TTL_SECONDS = 600  # 10 minutes
-_pending_queries: dict[str, dict[str, Any]] = {}
-_pending_lock = threading.Lock()
-
 
 class QueryResult(TypedDict):
     """Result of a notebook query."""
 
     answer: str
     conversation_id: str | None
-    sources_used: list
-    citations: dict
-    references: list
+    sources_used: list[Any]
+    citations: dict[str, Any]
+    references: list[dict[str, Any]]
+
+
+class PendingQueryState(TypedDict):
+    """Tracked state for an async query."""
+
+    status: str
+    result: QueryResult | None
+    error: str | None
+    created_at: float
+
+
+# --- Async query state management ---
+_QUERY_TTL_SECONDS = 600  # 10 minutes
+_pending_queries: dict[str, PendingQueryState] = {}
+_pending_lock = threading.Lock()
 
 
 class ConfigureResult(TypedDict):
@@ -72,13 +83,28 @@ def query(
             user_message="Please provide a question to ask.",
         )
 
+    # Validate notebook has sources
+    if not source_ids:
+        # We only check if we target the whole notebook
+        try:
+            nb = notebook_service.get_notebook(client, notebook_id)
+            if nb["source_count"] == 0:
+                raise ValidationError(
+                    "Cannot query an empty notebook.",
+                    user_message="This notebook has no sources to query. Add a source first using 'nlm source add' or 'nlm research start'.",
+                )
+        except ValidationError:
+            raise
+        except Exception:
+            pass  # Suppress failure to fetch notebook details; let query try anyway
+
     try:
         result = client.query(
             notebook_id=notebook_id,
             query_text=query_text,
             source_ids=source_ids,
             conversation_id=conversation_id,
-            timeout=timeout,
+            **({"timeout": cast(float, timeout)} if timeout is not None else {}),
         )
     except QueryRejectedError as e:
         raise ServiceError(
@@ -316,6 +342,20 @@ def query_start(
             "Query text is required.",
             user_message="Please provide a question to ask.",
         )
+
+    # Validate notebook has sources
+    if not source_ids:
+        try:
+            nb = notebook_service.get_notebook(client, notebook_id)
+            if nb["source_count"] == 0:
+                raise ValidationError(
+                    "Cannot query an empty notebook.",
+                    user_message="This notebook has no sources to query. Add a source first using 'nlm source add' or 'nlm research start'.",
+                )
+        except ValidationError:
+            raise
+        except Exception:
+            pass
 
     query_id = uuid.uuid4().hex[:12]
 

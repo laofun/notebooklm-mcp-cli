@@ -62,7 +62,7 @@ async def health_check(request: Request) -> JSONResponse:
     )
 
 
-def _register_tools():
+def _register_tools() -> None:
     """Import and register all tools from the modular tools package."""
     # Import all tool modules to populate the registry
     from .tools import (  # noqa: F401
@@ -92,7 +92,7 @@ def _register_tools():
 _register_tools()
 
 
-def main():
+def main() -> None:
     """Run the MCP server.
 
     Supports multiple transports:
@@ -188,6 +188,16 @@ Examples:
     if args.transport == "stdio":
         mcp.run(show_banner=False)
     elif args.transport == "http":
+        _LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+        if args.host not in _LOOPBACK_HOSTS:
+            import warnings
+
+            warnings.warn(
+                "SECURITY WARNING: HTTP transport is bound to a non-loopback address "
+                f"('{args.host}'). There is no built-in authentication. "
+                "Do not expose this port to untrusted networks.",
+                stacklevel=2,
+            )
         mcp.run(
             transport="streamable-http",
             host=args.host,
