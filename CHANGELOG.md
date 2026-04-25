@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.29] - 2026-04-24
+
+### Fixed
+- **Python 3.11 TypedDict compatibility (Issue #167)** — Pydantic v2 rejects `typing.TypedDict` on Python < 3.12. All 13 service files now import `TypedDict` from a centralized compat shim (`services/_compat.py`) that uses `typing_extensions` on < 3.12. Added `typing_extensions` as an explicit dependency for Python < 3.12. Thanks to **@irvinghu07** for the clear report and suggested fixes!
+- **SOCKS proxy blocks `nlm login` (Issue #167)** — The CDP helper's `httpx.Client` inherited `ALL_PROXY` from the environment, causing `ImportError: socksio not installed` on localhost CDP connections. Fixed with `trust_env=False`. Thanks to **@irvinghu07**!
+- **MCP `notebook_list` always returns "Authentication expired" (Issue #169)** — `save_tokens_to_cache()` only wrote to the legacy `auth.json`, but `load_cached_tokens()` prioritizes `profiles/default/cookies.json`. Tokens saved via the MCP `save_auth_tokens` tool were never read back. Fixed by syncing writes to both `auth.json` and the active profile. Thanks to **@nobolso** for the thorough diagnosis and file structure analysis!
+- **Python 3.14 Windows `pathlib.mkdir` regression (Issue #169)** — `Path.mkdir(parents=True, exist_ok=True)` raises `FileExistsError` (WinError 183) on Python 3.14 + Windows. Added `safe_mkdir()` wrapper applied to all `mkdir` calls across `config.py`, `auth.py`, `base.py`, and `cdp.py`. Thanks to **@nobolso**!
+
+## [0.5.28] - 2026-04-23
+
+### Fixed
+- **HTTP transport: default to stateless mode (Issue #165)** — HTTP transport (`--transport http`) now defaults to stateless sessions, preventing the MCP SDK double-response crash (`AssertionError: Request already responded to`) that killed entire sessions on slow Google API calls. Use `--no-stateless` to opt out. Thanks to **@mylaser215** for the thorough root cause analysis (#165)!
+
+### Changed
+- **CLI flags use `BooleanOptionalAction`** — `--stateless` / `--no-stateless` and `--debug` / `--no-debug` are now proper toggle pairs. Environment variables (`NOTEBOOKLM_MCP_STATELESS`, `NOTEBOOKLM_MCP_DEBUG`) accept `true/false/0/1/yes/no/on/off` (case-insensitive).
+
+### Documentation
+- **CLI Guide: document all skill install targets (Issue #163)** — Added `agents`, `codex`, `gemini-cli`, and `alef-agent` with install path details. Fixed missing `opencode` in setup clients list.
+
+## [0.5.27] - 2026-04-21
+
+### Added
+- **Restore skill targets for codex and gemini-cli (Issue #163)** — Restored the missing target configurations for `codex` and `gemini-cli` agent skills and added Alef Agent specific frontmatter logic. Thanks to the user who reported this issue (#163)!
+
+### Fixed
+- **Source: Honour `--title` when adding a file source (PR #162)** — Fixed an issue where adding a file source via CLI ignored the user's custom title. The source upload is now fully awaited before the follow-up rename is fired to guarantee precision. Huge thanks to **@CryptoWombat** for this excellent contribution and thorough fix!
+
 ## [0.5.26] - 2026-04-17
 
 ### Added
