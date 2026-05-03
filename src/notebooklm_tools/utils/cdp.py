@@ -669,7 +669,6 @@ def find_or_create_notebooklm_page_by_cdp_url(cdp_http_url: str) -> dict | None:
     except Exception as e:
         _logger.debug("Exception creating page via PUT /json/new?url: %s", e)
 
-    # Fallback 1: create blank page then navigate
     try:
         response = httpx_client.put(f"{cdp_http_url}/json/new", timeout=10)
         if response.status_code == 200 and response.text.strip():
@@ -682,9 +681,9 @@ def find_or_create_notebooklm_page_by_cdp_url(cdp_http_url: str) -> dict | None:
     except Exception as e:
         _logger.debug("Exception creating blank page via PUT /json/new: %s", e)
 
-    # Fallback 2: reuse an existing blank/new tab page
+    # All creation attempts failed — reuse an existing page
     _logger.debug("Falling back to reusing an existing page.")
-    pages = get_pages_by_cdp_url(cdp_http_url)
+    any_page: tuple[dict, str] | None = None
     for page in pages:
         url = page.get("url", "")
         if url in ("about:blank", "chrome://newtab/"):
@@ -693,15 +692,16 @@ def find_or_create_notebooklm_page_by_cdp_url(cdp_http_url: str) -> dict | None:
                 _logger.debug("Reusing page with url %s", url)
                 navigate_to_url(ws_url, NOTEBOOKLM_URL)
                 return page
-
-    # Fallback 3: reuse the very first page of type 'page'
-    for page in pages:
-        if page.get("type") == "page":
+        elif page.get("type") == "page" and any_page is None:
             ws_url = _normalize_ws_url(page.get("webSocketDebuggerUrl"))
             if ws_url:
-                _logger.debug("Reusing arbitrary page with url %s", page.get("url", ""))
-                navigate_to_url(ws_url, NOTEBOOKLM_URL)
-                return page
+                any_page = (page, ws_url)
+
+    if any_page:
+        page, ws_url = any_page
+        _logger.debug("Reusing arbitrary page with url %s", page.get("url", ""))
+        navigate_to_url(ws_url, NOTEBOOKLM_URL)
+        return page
 
     return None
 
