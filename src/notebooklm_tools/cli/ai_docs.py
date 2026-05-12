@@ -688,6 +688,7 @@ nlm skill show                              # Display skill content
 - `cline` - Cline CLI terminal agent (`~/.cline/skills/nlm-skill/`)
 - `openclaw` - OpenClaw AI agent framework (`~/.openclaw/workspace/skills/nlm-skill/`)
 - `alef-agent` - Alef Agent AI agent framework (`~/.alef-agent/workspace/skills/nlm-skill/`)
+- `hermes` - Hermes Agent by NousResearch (`~/.hermes/skills/nlm-skill/`)
 - `other` - Export all formats to `./nlm-skill-export/` for manual installation
 
 **Installation Levels:**
