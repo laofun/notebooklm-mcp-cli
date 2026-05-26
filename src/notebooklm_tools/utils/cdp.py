@@ -955,8 +955,18 @@ def navigate_to_url(ws_url: str, url: str) -> None:
 
 
 def _is_notebooklm_url(url: str) -> bool:
-    """Check if a URL belongs to any NotebookLM domain (personal or enterprise)."""
-    return "notebooklm.google.com" in url or "notebooklm.cloud.google.com" in url
+    """Check if a URL belongs to a NotebookLM host.
+
+    This must inspect only the hostname. Google sign-in URLs often contain
+    ``continue=https://notebooklm.google.com/...`` in the query string, but
+    those pages are still accounts.google.com pages and should not be treated
+    as NotebookLM tabs.
+    """
+    try:
+        host = (urlparse(url).hostname or "").lower()
+    except Exception:
+        return False
+    return host in {"notebooklm.google.com", "notebooklm.cloud.google.com"}
 
 
 def is_logged_in(url: str) -> bool:
@@ -1100,8 +1110,6 @@ def extract_cookies_via_cdp(
     existing_port, debugger_url = None, None
     if not clear_profile:
         existing_port, debugger_url = find_existing_nlm_chrome(profile_name=profile_name)
-        if not debugger_url:
-            existing_port, debugger_url = find_any_existing_cdp_browser()
 
     if existing_port:
         port = existing_port
