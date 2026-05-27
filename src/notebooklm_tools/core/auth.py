@@ -11,7 +11,7 @@ import json
 import logging
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -512,6 +512,10 @@ class AuthManager:
             headers["X-Goog-Csrf-Token"] = profile.csrf_token
         return headers
 
+    def check_validity(self, *, live: bool = True, timeout: float = 12.0) -> "AuthCheckResult":
+        """Check the validity of the current profile's credentials."""
+        return check_auth(profile=self.profile_name, live=live, timeout=timeout)
+
     @staticmethod
     def list_profiles() -> list[str]:
         """List all available profiles."""
@@ -554,9 +558,6 @@ def get_auth_manager(profile: str | None = None) -> AuthManager:
 # =============================================================================
 # Elegant Unified Auth Validity Check (the single source of truth)
 # =============================================================================
-
-
-from dataclasses import dataclass, field
 
 
 @dataclass
@@ -734,9 +735,4 @@ def check_auth(
         )
 
 
-# Backwards-compatible extension on AuthManager for ergonomic use
-def _auth_manager_check_validity(self: AuthManager, *, live: bool = True, timeout: float = 12.0) -> AuthCheckResult:
-    return check_auth(profile=self.profile_name, live=live, timeout=timeout)
 
-
-AuthManager.check_validity = _auth_manager_check_validity  # type: ignore[attr-defined]
