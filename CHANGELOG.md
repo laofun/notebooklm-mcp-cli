@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.13] - 2026-05-27
+
+### Security
+
+- **TOCTOU-safe credential file creation (PR #205)** — All credential files (`auth.json`, `cookies.json`, `metadata.json`, port map) were previously written with default permissions and then `chmod`'d to `0o600` — leaving a brief window where the file was world-readable. Fixed using `os.open()` + `os.fdopen()` so the file descriptor is created with `0o600` from the start. Thanks to **@Amy-Ra-lph** for the PR and thorough implementation!
+- **HTTP and SSE external-bind enforcement** — Running `notebooklm-mcp --transport http --host 0.0.0.0` (or `--transport sse`) previously emitted a warning but still bound to the external address. The server now refuses to start unless `NOTEBOOKLM_ALLOW_EXTERNAL_BIND=1` is explicitly set, preventing accidental cookie exposure on untrusted networks. The guard now covers both HTTP and SSE transports.
+- **GitHub Actions pinned to full commit SHAs (PR #207)** — All four workflow files now pin third-party actions (`actions/checkout`, `astral-sh/setup-uv`, `pypa/gh-action-pypi-publish`, `softprops/action-gh-release`) to their full 40-character commit SHAs with a version comment for readability. Prevents tag-drift supply chain attacks. Thanks to **@Amy-Ra-lph** for the careful SHA verification!
+
+### Fixed
+
+- **`terminate_chrome()` null-safety (PR #205)** — On double-call, `_cached_ws.close()` could raise `AttributeError` because `_cached_ws` was read after being set to `None`. The reference is now captured before the try block. Thanks to **@Amy-Ra-lph**!
+- **Cookie key whitespace handling (PR #205)** — Added `.strip()` to cookie key parsing in `save_auth_tokens` to handle edge cases with leading/trailing whitespace in cookie headers.
+- **Auth check consistency (PR #203)** — Unified auth checking logic under a single `check_auth()` function with a typed `AuthCheckResult`, eliminating subtle differences between the MCP and CLI auth status paths. Thanks to **@derekszen** for the clean refactor!
+
+### Changed
+
+- **Exponential backoff for source reconciliation polling** — `_reconcile_source()` (the fallback poller that verifies a source landed after an ambiguous gRPC error) previously used a fixed 1-second delay between polls. Now uses exponential backoff (1s → 2s → 4s, capped at 4s) to reduce unnecessary API calls on slower operations.
+- **File path canonicalization for uploads** — `add_file()` now calls `.expanduser().resolve()` on the input path, so paths like `~/Documents/file.pdf` work correctly and symlinks are fully resolved before validation.
+- **`raw_response` field removed from `query()` return** — The `raw_response` key was included in the dict returned by `ConversationMixin.query()` but was never read by any caller (services, MCP tools, or CLI). Removing it avoids leaking raw API response text into any future log aggregators or serializers.
+
 ## [0.6.12] - 2026-05-24
 
 ### Fixed

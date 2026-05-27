@@ -10,6 +10,7 @@ Usage:
 """
 
 import json
+import os
 import platform
 import re
 import shutil
@@ -157,15 +158,13 @@ def _read_port_map() -> dict[str, dict]:
 
 def _save_port_map(data: dict[str, dict]) -> None:
     """Write port map to disk with restrictive permissions from creation."""
-    import os as _os
-
     map_file = _get_port_map_file()
     try:
-        fd = _os.open(str(map_file), _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC, 0o600)
+        fd = os.open(str(map_file), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         try:
-            f = _os.fdopen(fd, "w", encoding="utf-8")
+            f = os.fdopen(fd, "w", encoding="utf-8")
         except BaseException:
-            _os.close(fd)
+            os.close(fd)
             raise
         with f:
             json.dump(data, f, indent=2)
