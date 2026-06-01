@@ -277,3 +277,48 @@ def test_studio_create_e2e_per_auth_state(monkeypatch, auth_state, valid, reason
         assert result.get("status") == "error", (
             f"[{auth_state}] expected a loud error, not a fake success. Got: {result}"
         )
+        # The auth-guard TTL must be reset to 0 on invalid auth so the next
+        # call retries immediately instead of waiting up to 60s for the TTL
+        # to expire. Without this, hammering studio_create in a loop during
+        # debugging would re-run the slow path on every call after the first.
+        assert studio_tools._auth_guard_expires == 0.0, (
+            f"[{auth_state}] expected auth-guard reset to 0 on invalid auth, "
+            f"got: {studio_tools._auth_guard_expires}"
+        )
+
+
+def test_studio_create_resets_auth_guard_on_invalid_auth(monkeypatch):
+    """When check_auth returns invalid, the TTL guard must be cleared so
+    subsequent calls re-check immediately rather than waiting for the TTL
+    to expire naturally. Without this, the user gets a stale-guard window
+    of up to 60s after auth flips from valid to invalid.
+
+    Note: this is a partial mitigation. The full bug class (auth becomes
+    invalid while the guard is still in its valid window) cannot be fixed
+    by a TTL-based cache alone; it requires a TTL of 0 (no cache) or a
+    push-based invalidation channel. The fix here addresses the case where
+    the TTL has already expired and we just detected the invalid auth: we
+    should not let a future-valid guard leak forward to the next call.
+    """
+    monkeypatch.setattr(
+        core_auth, "check_auth", lambda **kw: _auth_result(False, "expired"), raising=True
+    )
+    monkeypatch.setattr(studio_tools, "get_client", lambda: _FakeClient(), raising=True)
+
+    # Pre-seed the guard with a future timestamp, simulating "auth was valid
+    # 5s ago, the guard was updated to T+55, and now auth has expired". This
+    # is the exact state the fix targets: the guard is non-zero, but the
+    # TTL has not elapsed yet. We force it to expire so the check runs.
+
+    studio_tools._auth_guard_expires = 0.0  # force guard expired so check runs
+
+    result = studio_tools.studio_create(
+        notebook_id="nb-123", artifact_type="infographic", confirm=True
+    )
+    assert result.get("status") == "error"
+    # After an invalid check, the guard MUST be 0 (the fix). Before the fix,
+    # the guard was left at whatever value it had, which would let a stale
+    # future timestamp leak into the next call.
+    assert studio_tools._auth_guard_expires == 0.0, (
+        f"auth-guard should be reset to 0 on invalid auth, got: {studio_tools._auth_guard_expires}"
+    )

@@ -157,6 +157,8 @@ def studio_create(
     # The TTL guard avoids an HTTP round-trip on every call; we check at most
     # once per minute. On a cache miss we do a live fetch AND save the result
     # so the next get_client() skips its own re-fetch (CSRF is on disk).
+    # On a failed check we also clear the guard so the next call retries
+    # immediately instead of waiting up to 60s for the TTL to expire.
     global _auth_guard_expires
     _now = _time.monotonic()
     if _now >= _auth_guard_expires:
@@ -164,6 +166,7 @@ def studio_create(
 
         auth = check_auth(live=True)
         if not auth.valid:
+            _auth_guard_expires = 0.0
             return error_result(
                 f"Cannot create {artifact_type}: NotebookLM auth is not valid "
                 f"(reason: {auth.reason}). Run `nlm login` in a terminal to "
