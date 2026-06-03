@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-03
+
+### Added
+
+- **Studio prompting guide and fast-track agent behavior** — AI agents using the MCP skill now follow a fast-track prompting model: infer format, style, and prompt from context, emit a one-line notice, and generate immediately — no multi-question intake questionnaires. A guided preview mode (show settings + full prompt before generating) kicks in only for vague requests, high-stakes content (e.g. cinematic video), or when the user explicitly asks. Two new reference documents ship with the skill: `references/studio-prompting-guide.md` (per-artifact decision trees, prompt parameters) and `references/studio-prompt-examples.md` (copy-paste templates). SKILL.md and `workflows.md` updated throughout.
+- **Cinematic video format** — `video_format=cinematic` is now documented and supported in the skill, CLI, and MCP guide. Cinematic videos take the full creative brief via `focus_prompt` / `--focus`; `--style` is not applicable.
+
+### Fixed
+
+- **`format_item` silently discarded plain-dict results** — All three formatter classes (`TableFormatter`, `JsonFormatter`, `CompactFormatter`) checked for `model_dump` / `__dict__` before `isinstance(item, dict)`. Because `TypedDict` instances are plain `dict` at runtime (no `model_dump`, no per-instance `__dict__` in CPython), they fell through to the worst-case path: `JsonFormatter` wrapped the payload as `{"value": {...}}` instead of printing it flat, and `CompactFormatter` emitted `str(item)` (the raw dict repr) instead of the notebook ID. Fixed by adding `isinstance(item, dict)` as the first branch in all three `format_item` methods. `nlm notebook create --json` and pipe capture now work correctly.
+- **HTTP 401/403 misclassified as `"unverified"` in `server_info`** — The `reason.startswith("http_")` catch-all in `_check_auth_status` mapped every non-200 response — including definitive credential-rejection codes 401 and 403 — to `"unverified"` ("cached credentials may still work, do not prompt re-auth"). Added explicit `http_401` / `http_403` → `"stale"` guards before the general `http_` branch so agents correctly prompt re-authentication when cookies are genuinely rejected by NotebookLM.
+
 ## [0.6.16] - 2026-06-03
 
 ### Fixed

@@ -812,7 +812,6 @@ class TestShortAnswerRegression:
         """Short answer in the alternative string-first-elem branch (line 641 path) is returned."""
         mixin = self._make_mixin()
         chunk = json.dumps([["wrb.fr", None, json.dumps(["ANSWER: C"])]])
-        raw = self._build_raw_response(chunk)
 
         text, is_answer, cdata, _ = mixin._extract_answer_from_chunk(chunk)
 
