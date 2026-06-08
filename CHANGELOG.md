@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sanitize `no_proxy` environment variable (PR #221)** — Fixed package import crashes on Windows systems by cleaning up the `no_proxy` environment variable on initialization before `httpx` parses it. Thanks to **@insane66613**!
 - **Modern Chrome Cookie DB path detection (PR #222)** — Improved the SQLite cookie database location search logic for Google Chrome to work correctly with modern Chrome setups. Thanks to **@Sanity-Cloud**!
 - **Profile-aware headless refresh (PR #223)** — Fixed headless login refresh to use the default/active profile configured in the CLI configuration file instead of falling back. Thanks to **@Sanity-Cloud**!
+- **`AuthHealthChecker` API fallback passed wrong cookie format, causing false `stale` on semi-stale sessions (PR #225)** — The API fallback flattened `profile.cookies` to a dict, dropping domain-specific duplicates and omitting `session_id` / `build_label`. The API probe now passes `profile.cookies` unchanged with all session fields, matching `nlm login --check`. Thanks to **@insane66613**!
+- **`server_info`, `refresh_auth`, and `studio_create` disagreed on semi-stale auth (PR #225, Fixes #224)** — These three MCP paths each ran independent auth checks, so `server_info` could report `stale` and `studio_create` refuse to run while `notebook_list` and CLI tools worked fine. All MCP auth gates now share `credentials_are_usable()` (`AuthHealthChecker` + live API confirmation), eliminating split-brain results. Thanks to **@insane66613**!
 
 ## [0.7.1] - 2026-06-06
 

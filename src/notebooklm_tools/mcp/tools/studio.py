@@ -40,27 +40,18 @@ def _get_auth_file_mtime() -> float:
 
 
 def _studio_auth_is_valid() -> tuple[bool, str | None, str | None]:
-    """Validate NotebookLM auth while preserving the historical test seam.
+    """Validate NotebookLM auth for studio_create pre-flight checks.
 
-    The legacy homepage-based live check can falsely report expired when
-    NotebookLM still accepts cached cookies for API operations. Use it for
-    non-expired failures, but confirm "expired" with the real NotebookLM API.
+    Uses ``AuthHealthChecker`` (homepage + API fallback) and, when probes
+    are inconclusive or falsely negative, confirms with the same live API
+    path as ``nlm login --check``.
     """
-    from ...services.auth import check_auth
+    from ...services.auth import credentials_are_usable
 
-    auth = check_auth(live=True)
-    if auth.valid:
+    usable, status, detail = credentials_are_usable()
+    if usable:
         return True, None, None
-    if auth.reason != "expired":
-        return False, auth.reason, None
-    try:
-        client = get_client()
-        if hasattr(client, "list_notebooks"):
-            client.list_notebooks()
-            return True, None, None
-    except Exception as exc:
-        return False, "api_validation_failed", str(exc)
-    return False, auth.reason, None
+    return False, status, detail
 
 
 def _normalize_studio_validation_error(message: str) -> str:
