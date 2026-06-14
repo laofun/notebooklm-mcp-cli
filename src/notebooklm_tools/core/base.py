@@ -689,6 +689,26 @@ class BaseClient:
                             return result_str
         return None
 
+    def _extract_present_rpc_ids(self, parsed_response: list) -> list[str]:
+        """Return the rpc_ids of every wrb.fr chunk in a parsed response.
+
+        Used for drift diagnostics: when the expected rpc_id is missing, this
+        reveals which IDs the server actually returned so the user can set
+        NOTEBOOKLM_RPC_OVERRIDES.
+        """
+        present: list[str] = []
+        for chunk in parsed_response:
+            if isinstance(chunk, list):
+                for item in chunk:
+                    if (
+                        isinstance(item, list)
+                        and len(item) >= 2
+                        and item[0] == "wrb.fr"
+                        and isinstance(item[1], str)
+                    ):
+                        present.append(item[1])
+        return present
+
     def _call_rpc(
         self,
         rpc_id: str,
@@ -754,6 +774,8 @@ class BaseClient:
 
             # Check for RPC-level errors (soft auth failure)
             parsed = self._parse_response(response.text)
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("RPC IDs in response: %s", self._extract_present_rpc_ids(parsed))
             result = self._extract_rpc_result(parsed, rpc_id)
 
             # Enhanced debug logging for extracted result
