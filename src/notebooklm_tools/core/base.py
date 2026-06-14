@@ -60,6 +60,28 @@ def _safe_int_env(name: str, default: int) -> int:
     return value
 
 
+def load_rpc_overrides() -> dict[str, str]:
+    """Load runtime RPC-ID overrides from NOTEBOOKLM_RPC_OVERRIDES.
+
+    Lets users hot-patch rotated batchexecute method IDs without a release.
+    The value is a JSON object mapping BaseClient RPC attribute names to new
+    IDs, e.g. '{"RPC_LIST_NOTEBOOKS": "abc123"}'. Returns {} if unset, empty,
+    or malformed (a warning is logged on malformed input).
+    """
+    raw = os.environ.get("NOTEBOOKLM_RPC_OVERRIDES", "").strip()
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as e:
+        logger.warning("Ignoring malformed NOTEBOOKLM_RPC_OVERRIDES: %s", e)
+        return {}
+    if not isinstance(data, dict):
+        logger.warning("Ignoring NOTEBOOKLM_RPC_OVERRIDES: expected a JSON object")
+        return {}
+    return {str(k): str(v) for k, v in data.items()}
+
+
 def _extract_user_message(detail_data: Any, _depth: int = 0) -> str:
     """Recursively extract human-readable strings from a protobuf detail payload.
 
@@ -370,6 +392,9 @@ class BaseClient:
         # It is never held during network I/O.
         self._state_lock = threading.Lock()
 
+        # Apply any runtime RPC-ID overrides (hot-patch for rotated method IDs).
+        self._apply_rpc_overrides()
+
         # Only refresh CSRF token if not provided - tokens actually last hours/days, not minutes
         # The retry logic in _call_rpc() handles expired tokens gracefully
         if not self.csrf_token:
@@ -386,6 +411,21 @@ class BaseClient:
         if self._client:
             self._client.close()
             self._client = None
+
+    def _apply_rpc_overrides(self) -> None:
+        """Apply NOTEBOOKLM_RPC_OVERRIDES as instance attributes.
+
+        Each entry shadows the matching class-level RPC_* constant on this
+        instance only. Unknown keys (not an existing RPC_* attribute) are
+        logged and ignored so a typo can never silently disable a tool.
+        """
+        for name, new_id in load_rpc_overrides().items():
+            if not name.startswith("RPC_") or not hasattr(type(self), name):
+                logger.warning("Ignoring unknown RPC override: %s", name)
+                continue
+            old_id = getattr(type(self), name)
+            setattr(self, name, new_id)
+            logger.warning("RPC override applied: %s %s -> %s", name, old_id, new_id)
 
     # =========================================================================
     # Cookie Handling
