@@ -78,6 +78,16 @@ save_auth_tokens(cookies=<cookie_header>)
 | `NOTEBOOKLM_SESSION_ID` | No | (DEPRECATED - auto-extracted) |
 | `NOTEBOOKLM_BL` | No | Override for build label / bl URL param (auto-extracted from page) |
 | `NOTEBOOKLM_HL` | No | Interface language and default artifact language (default: `en`) |
+| `NOTEBOOKLM_RPC_OVERRIDES` | No | Hot-patch rotated batchexecute RPC method IDs without a release. JSON object mapping `BaseClient` RPC attribute names to new IDs, e.g. `{"RPC_LIST_NOTEBOOKS": "abc123"}` |
+
+### Resilience: rotated RPC IDs
+
+NotebookLM's internal API uses short RPC "method IDs" (e.g. `wXbhsf`) that Google rotates without notice. When one rotates, calls using the old ID fail. The client now:
+
+- **Detects drift loudly**: raises `RPCDriftError` (instead of returning silently) when the server responds with different RPC IDs than the one requested.
+- **Discovers the new ID**: run with `--debug` to log `RPC IDs in response: [...]` — the new ID for your call appears there.
+- **Hot-patches without a release**: set `NOTEBOOKLM_RPC_OVERRIDES='{"RPC_LIST_NOTEBOOKS": "<new_id>"}'` (use the `RPC_*` attribute name from `core/base.py`) to override the ID for the current session.
+- **Auto-retries throttling**: `RESOURCE_EXHAUSTED` (RPC error code 8) responses are retried with exponential backoff.
 
 ### Token Expiration
 

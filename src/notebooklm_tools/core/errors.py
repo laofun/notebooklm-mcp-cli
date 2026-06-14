@@ -150,6 +150,13 @@ class RPCDriftError(NotebookLMError):
     The usual cause is Google rotating the batchexecute method ID. The message
     names the missing id, lists the ids the server *did* return, and points the
     user at NOTEBOOKLM_RPC_OVERRIDES to hot-patch it without a release.
+
+    Deliberately extends NotebookLMError directly, NOT RPCError: drift must
+    bypass the service-layer ``except RPCError`` handlers so its actionable
+    NOTEBOOKLM_RPC_OVERRIDES guidance reaches the user verbatim instead of
+    being reformatted into a generic service error. (Contrast with
+    ResourceExhaustedError, which subclasses RPCError on purpose so existing
+    handlers still catch it.)
     """
 
     def __init__(self, rpc_id: str, present_ids: list[str] | None = None):
