@@ -58,11 +58,19 @@ nlm login
 | Tool | Description |
 |------|-------------|
 | `source_add` | **Unified** - Add URL, text, file, or Drive source |
-| `source_list_drive` | List sources with Drive freshness status |
+| `source_list_drive` | List sources with Drive freshness status; use `skip_freshness=True` for large notebooks when freshness is not needed |
 | `source_sync_drive` | Sync stale Drive sources |
 | `source_delete` | Delete source (requires `confirm=True`) |
 | `source_describe` | Get AI summary with keywords |
 | `source_get_content` | Get raw text content |
+
+**`source_list_drive` parameters:**
+```python
+source_list_drive(
+    notebook_id="...",
+    skip_freshness=False,  # True skips per-source freshness API calls for faster listing
+)
+```
 
 **`source_add` parameters:**
 ```python

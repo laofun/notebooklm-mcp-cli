@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.6] - 2026-06-16
+
+### Added
+
+- **Skip Drive freshness checks for large notebooks** — `source_list_drive` now accepts `skip_freshness=True`, and `nlm source list <notebook-id> --drive --skip-freshness` returns the source list without making one freshness API call per Drive source. This gives users with very large notebooks a fast listing path when freshness status is not needed. Skipped freshness is reported as unknown (`stale: null` / `is_stale: null`), not fresh.
+
+### Changed
+
+- **Release publish workflow now gates PyPI publishing** — The publish workflow now runs version alignment, ruff lint/format checks, and the non-E2E pytest suite before building and publishing. This catches release-blocking failures inside the publishing workflow before uploading to PyPI.
+
 ## [0.7.5] - 2026-06-15
 
 ### Fixed
