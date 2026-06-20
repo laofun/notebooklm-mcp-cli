@@ -333,7 +333,7 @@ nlm status research <notebook-id>                        # Check progress
 **All generation commands support:**
 - `--confirm` or `-y`: Skip confirmation (REQUIRED for automation)
 - `--source-ids <id1,id2>`: Limit to specific sources
-- `--language <code>`: BCP-47 code (en, es, fr, de, ja)
+- `--language <code>`: BCP-47 code, including regional locales such as `es-419`
 - `--profile <name>`: Use specific auth profile
 
 #### Audio (Podcast)
@@ -343,9 +343,15 @@ nlm status research <notebook-id>                        # Check progress
 nlm audio create <notebook-id> --confirm
 nlm audio create <notebook-id> --format deep_dive --length default --confirm
 nlm audio create <notebook-id> --format brief --focus "key topic" --confirm
+nlm audio create <notebook-id> --language es-419 --confirm
 # Formats: deep_dive, brief, critique, debate
 # Lengths: short, default, long
 ```
+
+NotebookLM has been observed using the BCP-47 region subtag to select the
+Audio Overview accent. `es`/`es-ES` produces Spain Spanish, while
+`es-US`/`es-419` produces Latin-American Spanish. Prompt text does not
+reliably override the accent. `NOTEBOOKLM_HL` can set the regional default.
 
 **Verb-First:**
 ```bash

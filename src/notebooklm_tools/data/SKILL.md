@@ -264,7 +264,15 @@ Use `studio_create` with `artifact_type` and type-specific options. All require 
 | `infographic` | `orientation`: landscape/portrait/square, `detail_level`: concise/standard/detailed, `infographic_style`: auto_select/sketch_note/professional/bento_grid/editorial/instructional/bricks/clay/anime/kawaii/scientific |
 | `data_table` | `description` (REQUIRED) |
 
-**Common options**: `source_ids`, `language` (BCP-47 code), `focus_prompt`
+**Common options**: `source_ids`, `language` (BCP-47 code, including regional
+locales such as `es-419`), `focus_prompt`
+
+**Audio accent:** NotebookLM has been observed using the `language` region
+subtag, not the prompt, to choose the Audio Overview accent. For example,
+`es`/`es-ES` produces Spain Spanish, while `es-US`/`es-419` produces
+Latin-American Spanish. `NOTEBOOKLM_HL` can set the same regional locale as
+the default. Treat this as observed upstream behavior, not a guaranteed API
+contract.
 
 **Revise Slides:** Use `studio_revise` to revise individual slides in an existing slide deck.
 - Requires `artifact_id` (from `studio_status`) and `slide_instructions`
@@ -277,7 +285,7 @@ Use `studio_create` with `artifact_type` and type-specific options. All require 
 All generation commands share these flags:
 - `--confirm` or `-y`: **REQUIRED** to execute
 - `--source-ids <id1,id2>`: Limit to specific sources
-- `--language <code>`: BCP-47 code (en, es, fr, de, ja)
+- `--language <code>`: BCP-47 code (`en`, `es-ES`, `es-US`, `es-419`, `fr`, etc.)
 
 ```bash
 # Audio (Podcast)

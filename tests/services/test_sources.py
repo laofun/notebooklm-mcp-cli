@@ -198,6 +198,25 @@ class TestAddSource:
         # caller's intended title.
         assert result["title"] == "doc.pdf"
 
+    def test_add_file_source_preserves_path_failure_details(self, mock_client, tmp_path):
+        requested_path = tmp_path / "missing.pdf"
+        resolved_path = requested_path.resolve()
+        mock_client.add_file.side_effect = FileNotFoundError(f"File not found: {resolved_path}")
+
+        with pytest.raises(ServiceError) as exc_info:
+            add_source(
+                mock_client,
+                "nb-1",
+                "file",
+                file_path=str(requested_path),
+            )
+
+        error = exc_info.value
+        assert error.user_message == f"Could not add file source: File not found: {resolved_path}"
+        assert error.hint is not None
+        assert "machine running the MCP server" in error.hint
+        assert str(resolved_path) in error.hint
+
     def test_invalid_source_type(self, mock_client):
         with pytest.raises(ValidationError, match="Unknown source type"):
             add_source(mock_client, "nb-1", "podcast")

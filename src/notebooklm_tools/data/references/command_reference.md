@@ -397,7 +397,7 @@ All generation commands share these common options:
 |--------|-------|-------------|
 | `--confirm` | `-y` | **Required** to execute generation |
 | `--source-ids` | | Limit to specific sources (comma-separated) |
-| `--language` | | BCP-47 language code (en, es, fr, de, ja) |
+| `--language` | | BCP-47 language code, including regional locales such as `es-419` |
 | `--profile` | `-p` | Use specific profile |
 
 ### nlm audio create
@@ -413,6 +413,10 @@ nlm audio create <notebook-id> [OPTIONS]
 | `--format` | `deep_dive`, `brief`, `critique`, `debate` | `deep_dive` |
 | `--length` | `short`, `default`, `long` | `default` |
 | `--focus` | Focus text/topic | |
+
+For audio, regional locales can affect the voice accent. NotebookLM has been
+observed using `es`/`es-ES` for Spain Spanish and `es-US`/`es-419` for
+Latin-American Spanish. `NOTEBOOKLM_HL` can set the regional default.
 
 ### nlm report create
 

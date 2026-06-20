@@ -4,6 +4,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from notebooklm_tools.services.errors import ServiceError
+
 
 class TestMCPSourceAddFile:
     """Test file upload via the consolidated source_add MCP tool."""
@@ -60,3 +62,33 @@ class TestMCPSourceAddFile:
 
         assert result["status"] == "error"
         assert "file_path is required" in result["error"]
+
+    def test_source_add_file_returns_server_path_and_reason(self, tmp_path):
+        """File failures identify the server-side path that could not be read."""
+        from notebooklm_tools.mcp.tools import sources
+
+        requested_path = tmp_path / "missing.pdf"
+        resolved_path = requested_path.resolve()
+        error = ServiceError(
+            f"Failed to add file source: File not found: {resolved_path}",
+            user_message=f"Could not add file source: File not found: {resolved_path}",
+            hint=(
+                "File paths are resolved on the machine running the MCP server. "
+                f"Resolved path: {resolved_path}"
+            ),
+        )
+
+        with patch(
+            "notebooklm_tools.mcp.tools.sources.sources_service.add_source",
+            side_effect=error,
+        ):
+            result = sources.source_add(
+                notebook_id="test-notebook",
+                source_type="file",
+                file_path=str(requested_path),
+            )
+
+        assert result["status"] == "error"
+        assert result["error"] == f"Could not add file source: File not found: {resolved_path}"
+        assert "machine running the MCP server" in result["hint"]
+        assert str(resolved_path) in result["hint"]
