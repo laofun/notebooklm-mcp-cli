@@ -1,7 +1,7 @@
 ---
 name: nlm-skill
 version: "0.7.8"
-description: "Expert guide for the NotebookLM CLI (`nlm`) and MCP server - interfaces for Google NotebookLM. Use this skill when users want to interact with NotebookLM programmatically, including: creating/managing notebooks, adding sources (URLs, YouTube, text, Google Drive), generating content (podcasts, reports, quizzes, flashcards, mind maps, slides, infographics, videos, data tables), conducting research, chatting with sources, or automating NotebookLM workflows. Triggers on mentions of \"nlm\", \"notebooklm\", \"notebook lm\", \"podcast generation\", \"audio overview\", or any NotebookLM-related automation task."
+description: "Expert guide for the NotebookLM CLI (`nlm`) and MCP server - interfaces for Google NotebookLM. Use this skill when users want to interact with NotebookLM programmatically, including: creating/managing notebooks, adding sources (URLs, YouTube, text, Google Drive), generating content (podcasts, reports, quizzes, flashcards, mind maps, slides, infographics, videos, data tables), conducting research, chatting with sources, or automating NotebookLM workflows. Triggers on mentions of \"nlm\", \"notebooklm\", \"notebook lm\", \"podcast generation\", \"audio overview\", \"refactor document\", \"critique draft\", or any NotebookLM-related automation task."
 ---
 
 # NotebookLM CLI & MCP Expert
@@ -92,6 +92,9 @@ User wants to...
 │   ├─► Visual content → nlm mindmap/slides/infographic create <nb-id> --confirm
 │   ├─► Video → nlm video create <nb-id> --confirm
 │   └─► Extract data → nlm data-table create <nb-id> "description" --confirm
+│
+├─► Refactor, critique, or improve a draft document
+│   └─► See Workflow 15 in references/workflows.md
 │
 ├─► Ask questions about sources
 │   └─► nlm notebook query <nb-id> "question"
